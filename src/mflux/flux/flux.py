@@ -2,7 +2,6 @@ from pathlib import Path
 
 import mlx.core as mx
 from mlx import nn
-from tqdm import tqdm
 
 from mflux.config.config import Config
 from mflux.config.model_config import ModelConfig
@@ -19,6 +18,7 @@ from mflux.post_processing.stepwise_handler import StepwiseHandler
 from mflux.tokenizer.clip_tokenizer import TokenizerCLIP
 from mflux.tokenizer.t5_tokenizer import TokenizerT5
 from mflux.tokenizer.tokenizer_handler import TokenizerHandler
+from mflux.ui.cli import output as cli_output
 from mflux.weights.model_saver import ModelSaver
 from mflux.weights.weight_handler import WeightHandler
 
@@ -83,7 +83,7 @@ class Flux1:
     ) -> GeneratedImage:
         # Create a new runtime config based on the model type and input parameters
         config = RuntimeConfig(config, self.model_config)
-        time_steps = tqdm(range(config.num_inference_steps))
+        time_steps = cli_output.progress(range(config.num_inference_steps))
         stepwise_handler = StepwiseHandler(
             flux=self,
             config=config,

@@ -202,6 +202,7 @@ class Flux1Controlnet:
             lora_scales=self.lora_scales,
             config=config,
             controlnet_image_path=controlnet_image_path,
+            controlnet_strength=config.controlnet_strength,
         )
 
     def _set_model_weights(self, weights):

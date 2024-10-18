@@ -203,7 +203,7 @@ def test_image_to_image_args(mflux_generate_parser, mflux_generate_minimal_argv,
     with patch('sys.argv', mflux_generate_minimal_argv + ['--init-image-strength', '0.7', '--config-from-metadata', metadata_file.as_posix()]):  # fmt: off
         args = mflux_generate_parser.parse_args()
         assert args.init_image_path == test_path
-        assert args.init_image_strength == 0.7  # default
+        assert args.init_image_strength == 0.7
 
     # test image path override
     with patch('sys.argv', mflux_generate_minimal_argv + ['--init-image-path', '/some/better/image.png', '--config-from-metadata', metadata_file.as_posix()]):  # fmt: off

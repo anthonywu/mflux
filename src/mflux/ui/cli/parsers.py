@@ -104,9 +104,7 @@ class CommandLineParser(argparse.ArgumentParser):
             if self.supports_image_to_image:
                 if namespace.init_image_path is None:
                     namespace.init_image_path = prior_gen_metadata.get("init_image_path", None)
-                init_img_strength_default = self.get_default("init_image_strength")
-                init_img_strength_from_metadata = prior_gen_metadata.get("init_image_strength", None)
-                if namespace.init_image_strength == init_img_strength_default and (init_img_strength_from_metadata := prior_gen_metadata.get("init_image_strength", None)):
+                if namespace.init_image_strength == self.get_default("init_image_strength") and (init_img_strength_from_metadata := prior_gen_metadata.get("init_image_strength", None)):
                     namespace.init_image_strength = init_img_strength_from_metadata
 
             if self.supports_controlnet:
@@ -124,4 +122,8 @@ class CommandLineParser(argparse.ArgumentParser):
         if self.supports_image_generation and namespace.steps is None:
             namespace.steps = ui_defaults.MODEL_INFERENCE_STEPS.get(namespace.model, None)
 
+        # from pprint import pprint
+        # pprint(vars(namespace).items())
+        # import sys
+        # sys.exit(1)
         return namespace

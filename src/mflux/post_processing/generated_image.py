@@ -59,7 +59,7 @@ class GeneratedImage:
             "model": str(self.model_config.alias),
             "seed": self.seed,
             "steps": self.steps,
-            "guidance": None if self.model_config == ModelConfig.FLUX1_SCHNELL else str(self.guidance),
+            "guidance": self.guidance if ModelConfig.FLUX1_DEV else None,  # only the dev model supports guidance
             "precision": str(self.precision),
             "quantize": self.quantization,
             "generation_time_seconds": round(self.generation_time, 2),

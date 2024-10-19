@@ -50,8 +50,16 @@ class RuntimeConfig:
         return self.model_config.num_train_steps
 
     @property
+    def init_image_path(self) -> int:
+        return self.config.init_image_path
+
+    @property
+    def init_image_strength(self) -> int:
+        return self.config.init_image_strength
+
+    @property
     def init_time_step(self) -> int:
-        if self.config.init_image is None:
+        if self.config.init_image_path is None:
             # text to image, always begin at time step 0
             return 0
         else:
@@ -69,8 +77,8 @@ class RuntimeConfig:
             shape=[1, (self.height // 16) * (self.width // 16), 64],
             key=mx.random.key(self.seed)
         )  # fmt: off
-        if self.config.init_image is not None:
-            user_image = ImageUtil.load_image(self.config.init_image).convert("RGB")
+        if self.config.init_image_path is not None:
+            user_image = ImageUtil.load_image(self.config.init_image_path).convert("RGB")
             latents = ArrayUtil.pack_latents(
                 self.vae.encode(ImageUtil.to_array(ImageUtil.scale_to_dimensions(user_image, self.width, self.height))),
                 self.width,

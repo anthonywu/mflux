@@ -16,7 +16,7 @@ class Config:
         width: int = 1024,
         height: int = 1024,
         guidance: float = 4.0,
-        init_image: Path | None = None,
+        init_image_path: Path | None = None,
         init_image_strength: float | None = None,
         seed: float | None = None,
     ):
@@ -26,7 +26,7 @@ class Config:
         self.height = 16 * (height // 16)
         self.num_inference_steps = num_inference_steps
         self.guidance = guidance
-        self.init_image = init_image
+        self.init_image_path = init_image_path
         self.init_image_strength = init_image_strength
         self.seed = seed or int(time.time())
 

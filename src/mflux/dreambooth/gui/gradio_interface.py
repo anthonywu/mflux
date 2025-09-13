@@ -1,19 +1,27 @@
 """Gradio-based GUI for MFLUX DreamBooth training."""
 
-import functools
-import json
-import os
-import random
-import tempfile
-from pathlib import Path
-from typing import List, Tuple
-
-from PIL import Image
-
 try:
     import gradio as gr
 except ImportError:
     raise ImportError("Gradio is not installed. Please install it with: pip install 'mflux[gui]' or pip install gradio")
+
+import functools
+import json
+import os
+import platform
+import random
+import subprocess
+import tempfile
+from datetime import datetime
+from pathlib import Path
+from typing import List, Tuple
+
+import platformdirs
+from PIL import Image
+
+from mflux.dreambooth.dreambooth import DreamBooth
+from mflux.dreambooth.dreambooth_initializer import DreamBoothInitializer
+from mflux.error.exceptions import StopTrainingException
 
 
 class DreamBoothGUI:
@@ -71,6 +79,15 @@ class DreamBoothGUI:
 
         # Create temporary directory for images
         self.temp_dir = Path(tempfile.mkdtemp(prefix="dreambooth_"))
+        # a unique enough timestamped training id
+        # for our use case, unlikely that any user can launch more than 1 training per minute
+        self.training_id = datetime.now().strftime("%Y%m%d-%H%M")
+        self.output_path = (
+            platformdirs.user_desktop_path()
+            / "mflux-dreambooth"
+            / f"{subject_type}-{trigger_word}-model-{model}-{num_epochs}-epochs-q{quantize}-{self.training_id}"
+        )
+
         images_dir = self.temp_dir / "images"
         images_dir.mkdir(exist_ok=True)
 
@@ -107,7 +124,6 @@ class DreamBoothGUI:
         }
         template = template_map.get(subject_type.lower(), "object")
 
-        # Create configuration
         config = {
             "model": model,
             "seed": random.randint(0, int(1e6)),
@@ -125,7 +141,7 @@ class DreamBoothGUI:
                 "learning_rate": learning_rate,
             },
             "save": {
-                "output_path": str(self.temp_dir / "output"),
+                "output_path": str(self.output_path),
                 "checkpoint_frequency": max(10, num_epochs // 10),
             },
             "instrumentation": {
@@ -149,7 +165,9 @@ class DreamBoothGUI:
         summary = f"""
 ✅ Configuration created successfully!
 
-📄 Config path: {self.config_path}
+📄 Training Config path: {self.config_path}
+📁 Training Output path: {self.output_path}
+
 👤 Subject type: {subject_type}
 🏷️ Trigger word: {trigger_word}
 🤖 Model: {model}
@@ -158,7 +176,7 @@ class DreamBoothGUI:
 💾 Quantization: {quantize}-bit
 📦 Batch size: {batch_size}
 
- Training images: {len(image_configs)}
+🖼️ Training images: {len(image_configs)}
 🔄 Epochs: {num_epochs}
 ⏳ Total Number of Steps (image count x epochs count): {len(image_configs) * num_epochs}
 
@@ -196,10 +214,6 @@ class DreamBoothGUI:
             return "❌ No configuration created. Please upload images first."
 
         try:
-            from mflux.dreambooth.dreambooth import DreamBooth
-            from mflux.dreambooth.dreambooth_initializer import DreamBoothInitializer
-            from mflux.error.exceptions import StopTrainingException
-
             progress(0, desc="Initializing DreamBooth training...")
 
             # this section is the same controller as train.py
@@ -218,16 +232,26 @@ class DreamBoothGUI:
                     training_spec=training_spec,
                     training_state=training_state,
                     on_batch_update=lambda batch_count: progress(
-                        # (steps completed, total steps)
+                        # arg: (steps completed, total steps)
                         (batch_count, num_batches_for_progress),
                         desc=f"Completed Batch {batch_count} / {num_batches_for_progress}",
                     ),
                 )
+
+                if self.output_path.exists() and platform.system() == "Darwin":
+                    # convenience for users - open/show the output folder in Finder
+                    try:
+                        subprocess.call(["open", self.output_path])
+                    except subprocess.CalledProcessError:
+                        # if the terminal/gui controller cannot access open or the Finder
+                        print(f"📂 Training output available at {self.output_path}")
+
+                return "✅ Training succeeded. Check your training output directory for the LoRA safetensors file."
             except StopTrainingException as stop_exc:
                 training_state.save(training_spec)
-                return str(stop_exc)
+                return str(f"❌ {stop_exc!s}")
         except Exception as e:  # noqa: BLE001
-            return f"❌ Training failed: {str(e)}"
+            return f"❌ Training failed: {e!s}"
 
     def create_interface(self) -> gr.Blocks:
         """Create the Gradio interface."""
@@ -260,6 +284,12 @@ class DreamBoothGUI:
 
                     validation_status = gr.Textbox(
                         label="Validation Status",
+                        interactive=False,
+                    )
+
+                    training_output = gr.Textbox(
+                        label="Training Status",
+                        lines=20,
                         interactive=False,
                     )
 
@@ -393,11 +423,6 @@ class DreamBoothGUI:
                     start_training_btn = gr.Button(
                         "🚀 Start Training",
                         variant="primary",
-                    )
-
-                    training_output = gr.Textbox(
-                        label="Training Status",
-                        interactive=False,
                     )
 
             # Wire up the interface

@@ -1,4 +1,5 @@
 import sys
+
 from mflux.dreambooth.dreambooth import DreamBooth
 from mflux.dreambooth.dreambooth_initializer import DreamBoothInitializer
 from mflux.error.exceptions import StopTrainingException

@@ -35,11 +35,15 @@ class DreamBooth:
         )
 
         # Setup progress bar
-        batches = tqdm(
-            training_state.iterator,
-            total=training_state.iterator.total_number_of_steps(),
-            initial=training_state.iterator.num_iterations,
-        )
+        if on_batch_update:
+            batches = training_state.iterator
+        else:
+            # no external progress indicator, init tqdm
+            batches = tqdm(
+                training_state.iterator,
+                total=training_state.iterator.total_number_of_steps(),
+                initial=training_state.iterator.num_iterations,
+            )
 
         # Training loop
         for batch_count, batch in enumerate(batches, 1):

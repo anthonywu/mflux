@@ -1,20 +1,22 @@
-"""Gradio-based GUI for DreamBooth training with drag-and-drop support."""
+"""Gradio-based GUI for MFLUX DreamBooth training."""
 
 import json
+import os
+import random
 import tempfile
 from pathlib import Path
 from typing import List, Tuple
+
+from PIL import Image
 
 try:
     import gradio as gr
 except ImportError:
     raise ImportError("Gradio is not installed. Please install it with: pip install 'mflux[gui]' or pip install gradio")
 
-from PIL import Image
-
 
 class DreamBoothGUI:
-    """Gradio interface for easy DreamBooth training."""
+    """Gradio interface to support novice users in DreamBooth training."""
 
     def __init__(self):
         self.temp_dir = None
@@ -76,7 +78,6 @@ class DreamBoothGUI:
             if img.mode != "RGB":
                 img = img.convert("RGB")
 
-            # Resize if needed (maintain aspect ratio)
             if img.width > 1024 or img.height > 1024:
                 img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
 
@@ -102,22 +103,34 @@ class DreamBoothGUI:
         # Create configuration
         config = {
             "model": model,
-            "seed": 42,
+            "seed": random.randint(0, int(1e6)),
             "steps": 20,
             "guidance": 3.5 if template == "style" else 3.0,
             "quantize": quantize,
             "width": 512,
             "height": 512,
-            "training_loop": {"num_epochs": num_epochs, "batch_size": batch_size},
-            "optimizer": {"name": "AdamW", "learning_rate": learning_rate},
-            "save": {"output_path": str(self.temp_dir / "output"), "checkpoint_frequency": max(10, num_epochs // 10)},
+            "training_loop": {
+                "num_epochs": num_epochs,
+                "batch_size": batch_size,
+            },
+            "optimizer": {
+                "name": "AdamW",
+                "learning_rate": learning_rate,
+            },
+            "save": {
+                "output_path": str(self.temp_dir / "output"),
+                "checkpoint_frequency": max(10, num_epochs // 10),
+            },
             "instrumentation": {
                 "plot_frequency": 5,
                 "generate_image_frequency": max(10, num_epochs // 10),
                 "validation_prompt": f"photo of {trigger_word} {subject_type}",
             },
             "lora_layers": self._get_lora_config(template, lora_rank),
-            "examples": {"path": "images/", "images": image_configs},
+            "examples": {
+                "path": "images/",
+                "images": image_configs,
+            },
         }
 
         # Save configuration
@@ -129,17 +142,20 @@ class DreamBoothGUI:
         summary = f"""
 ✅ Configuration created successfully!
 
-📁 Training images: {len(image_configs)}
+📄 Config path: {self.config_path}
 🎯 Subject type: {subject_type}
 🏷️ Trigger word: {trigger_word}
 🤖 Model: {model}
-🔄 Epochs: {num_epochs}
 📊 Learning rate: {learning_rate:.1e}
 🎚️ LoRA rank: {lora_rank}
 💾 Quantization: {quantize}-bit
 📦 Batch size: {batch_size}
 
-Ready to start training!
+ Training images: {len(image_configs)}
+🔄 Epochs: {num_epochs}
+⏳ Total Number of Steps (image count x epochs count): {len(image_configs) * num_epochs}
+
+🤞🏼 Ready to start training!
 """
         return summary, str(self.config_path)
 
@@ -195,7 +211,8 @@ Ready to start training!
                     training_spec=training_spec,
                     training_state=training_state,
                     on_batch_update=lambda batch_count: progress(
-                        int(batch_count / num_batches_for_progress * 100.0),
+                        # (steps completed, total steps)
+                        (batch_count, num_batches_for_progress),
                         desc=f"Completed Batch {batch_count} / {num_batches_for_progress}",
                     ),
                 )
@@ -207,9 +224,9 @@ Ready to start training!
 
     def create_interface(self) -> gr.Blocks:
         """Create the Gradio interface."""
-        with gr.Blocks(title="DreamBooth Training GUI") as interface:
+        with gr.Blocks(title="MFLUX DreamBooth Training GUI") as interface:
             gr.Markdown("""
-            # 🎨 DreamBooth Training Interface
+            # 🎨 MFLUX DreamBooth Training Interface
 
             Drag and drop your images below to start training your own LoRA model!
             """)
@@ -226,30 +243,54 @@ Ready to start training!
 
                     # Image preview
                     image_preview = gr.Gallery(
-                        label="Image Preview", show_label=True, elem_id="gallery", columns=3, rows=2, height="auto"
+                        label="Image Preview",
+                        show_label=True,
+                        elem_id="gallery",
+                        columns=3,
+                        rows=2,
+                        height="auto",
                     )
 
-                    validation_status = gr.Textbox(label="Validation Status", interactive=False)
+                    validation_status = gr.Textbox(
+                        label="Validation Status",
+                        interactive=False,
+                    )
 
                 with gr.Column(scale=1):
                     # Training parameters
-                    gr.Markdown("### 🎯 Training Configuration")
+                    gr.Markdown("### 📝 Training Configuration")
 
                     subject_type = gr.Textbox(
-                        label="Subject Type", placeholder="e.g., dog, person, toy, style", value="dog"
+                        label="Subject Type",
+                        placeholder="e.g., dog, person, toy, style",
+                        value="dog",
                     )
 
                     trigger_word = gr.Textbox(
-                        label="Trigger Word", value="sks", info="Unique identifier for your subject"
+                        label="Trigger Word",
+                        value="sks",
+                        info="Unique identifier for your subject",
                     )
 
-                    model = gr.Dropdown(label="Model", choices=["dev", "schnell"], value="dev")
+                    model = gr.Dropdown(
+                        label="Model",
+                        choices=["dev", "schnell"],
+                        value="dev",
+                    )
 
                     with gr.Accordion("Advanced Settings", open=False):
-                        num_epochs = gr.Slider(label="Number of Epochs", minimum=20, maximum=300, value=100, step=10)
+                        num_epochs = gr.Slider(
+                            label="Number of Epochs",
+                            minimum=int(os.environ.get("MFLUX_EPOCH_MIN_VALUE", 20)),
+                            maximum=300,
+                            value=int(os.environ.get("MFLUX_EPOCH_DEFAULT_VALUE", 100)),
+                            step=10,
+                        )
 
                         learning_rate = gr.Number(
-                            label="Learning Rate", value=1e-4, info="Scientific notation: 1e-4 = 0.0001"
+                            label="Learning Rate",
+                            value=1e-4,
+                            info="Scientific notation: 1e-4 = 0.0001",
                         )
 
                         lora_rank = gr.Slider(
@@ -262,23 +303,47 @@ Ready to start training!
                         )
 
                         quantize = gr.Radio(
-                            label="Quantization", choices=[4, 8], value=4, info="Higher = less memory usage"
+                            label="Quantization",
+                            choices=[4, 8],
+                            value=4,
+                            info="Higher = less memory usage",
                         )
 
                         batch_size = gr.Slider(
-                            label="Batch Size", minimum=1, maximum=4, value=1, info="Higher = faster but more memory"
+                            label="Batch Size",
+                            minimum=1,
+                            maximum=4,
+                            value=1,
+                            step=1,
+                            info="Higher = faster but more memory",
                         )
 
                     # Action buttons
-                    config_output = gr.Textbox(label="Configuration Status", interactive=False, lines=15)
+                    config_output = gr.Textbox(
+                        label="Configuration Status",
+                        interactive=False,
+                        lines=15,
+                    )
 
-                    config_path_output = gr.Textbox(label="Config Path", visible=False)
+                    config_path_output = gr.Textbox(
+                        label="Config Path",
+                        visible=False,
+                    )
 
-                    create_config_btn = gr.Button("📝 Create Configuration", variant="secondary")
+                    create_config_btn = gr.Button(
+                        "📝 Create Configuration",
+                        variant="secondary",
+                    )
 
-                    start_training_btn = gr.Button("🚀 Start Training", variant="primary")
+                    start_training_btn = gr.Button(
+                        "🚀 Start Training",
+                        variant="primary",
+                    )
 
-                    training_output = gr.Textbox(label="Training Status", interactive=False)
+                    training_output = gr.Textbox(
+                        label="Training Status",
+                        interactive=False,
+                    )
 
             # Wire up the interface
             def on_file_upload(files):
@@ -289,7 +354,11 @@ Ready to start training!
                     return images, status
                 return None, status
 
-            file_input.change(on_file_upload, inputs=[file_input], outputs=[image_preview, validation_status])
+            file_input.change(
+                on_file_upload,
+                inputs=[file_input],
+                outputs=[image_preview, validation_status],
+            )
 
             create_config_btn.click(
                 self.generate_config,
@@ -307,7 +376,11 @@ Ready to start training!
                 outputs=[config_output, config_path_output],
             )
 
-            start_training_btn.click(self.start_training, inputs=[config_path_output], outputs=[training_output])
+            start_training_btn.click(
+                self.start_training,
+                inputs=[config_path_output],
+                outputs=[training_output],
+            )
 
             # Add tips
             gr.Markdown("""

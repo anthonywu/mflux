@@ -1,3 +1,4 @@
+import sys
 from mflux.dreambooth.dreambooth import DreamBooth
 from mflux.dreambooth.dreambooth_initializer import DreamBoothInitializer
 from mflux.error.exceptions import StopTrainingException
@@ -7,10 +8,12 @@ from mflux.ui.cli.parsers import CommandLineParser
 def main():
     # 0. Parse command line arguments
     parser = CommandLineParser(description="Finetune a LoRA adapter")
-    parser.add_general_arguments()
-    parser.add_model_arguments(require_model_arg=False)
     parser.add_training_arguments()
     args = parser.parse_args()
+
+    if not (args.train_config or args.train_checkpoint):
+        print("USAGE: --train-config and/or --train-checkpoint must be provided.")
+        sys.exit(1)
 
     # 1. Initialize the required resources
     flux, runtime_config, training_spec, training_state = DreamBoothInitializer.initialize(

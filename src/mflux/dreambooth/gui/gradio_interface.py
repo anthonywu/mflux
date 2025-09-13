@@ -1,5 +1,6 @@
 """Gradio-based GUI for MFLUX DreamBooth training."""
 
+import functools
 import json
 import os
 import random
@@ -57,6 +58,12 @@ class DreamBoothGUI:
         lora_rank: int,
         quantize: int,
         batch_size: int,
+        steps: int,
+        guidance: float,
+        width: int,
+        height: int,
+        plot_frequency: int,
+        generate_image_frequency: int,
     ) -> Tuple[str, str]:
         """Generate training configuration from GUI inputs."""
         if not files:
@@ -104,11 +111,11 @@ class DreamBoothGUI:
         config = {
             "model": model,
             "seed": random.randint(0, int(1e6)),
-            "steps": 20,
-            "guidance": 3.5 if template == "style" else 3.0,
+            "steps": steps,
+            "guidance": guidance,
             "quantize": quantize,
-            "width": 512,
-            "height": 512,
+            "width": width,
+            "height": height,
             "training_loop": {
                 "num_epochs": num_epochs,
                 "batch_size": batch_size,
@@ -122,8 +129,8 @@ class DreamBoothGUI:
                 "checkpoint_frequency": max(10, num_epochs // 10),
             },
             "instrumentation": {
-                "plot_frequency": 5,
-                "generate_image_frequency": max(10, num_epochs // 10),
+                "plot_frequency": plot_frequency,
+                "generate_image_frequency": generate_image_frequency,
                 "validation_prompt": f"photo of {trigger_word} {subject_type}",
             },
             "lora_layers": self._get_lora_config(template, lora_rank),
@@ -143,7 +150,7 @@ class DreamBoothGUI:
 ✅ Configuration created successfully!
 
 📄 Config path: {self.config_path}
-🎯 Subject type: {subject_type}
+👤 Subject type: {subject_type}
 🏷️ Trigger word: {trigger_word}
 🤖 Model: {model}
 📊 Learning rate: {learning_rate:.1e}
@@ -262,7 +269,7 @@ class DreamBoothGUI:
 
                     subject_type = gr.Textbox(
                         label="Subject Type",
-                        placeholder="e.g., dog, person, toy, style",
+                        placeholder="e.g., person, dog, toy, style",
                         value="dog",
                     )
 
@@ -316,6 +323,54 @@ class DreamBoothGUI:
                             value=1,
                             step=1,
                             info="Higher = faster but more memory",
+                        )
+
+                        steps = gr.Slider(
+                            label="Validation Steps",
+                            minimum=10,
+                            maximum=50,
+                            value=20,
+                            step=5,
+                        )
+
+                        guidance = gr.Slider(
+                            label="Validation Guidance",
+                            minimum=1.0,
+                            maximum=7.0,
+                            value=3.0,
+                            step=0.1,
+                        )
+
+                        dimension_slider = functools.partial(
+                            gr.Slider,
+                            minimum=512,
+                            maximum=1024,
+                            value=512,
+                            step=256,
+                        )
+
+                        width = dimension_slider(
+                            label="Validation Image Width",
+                        )
+
+                        height = dimension_slider(
+                            label="Validation Image Height",
+                        )
+
+                        plot_frequency = gr.Slider(
+                            label="Plot Frequency (epochs)",
+                            minimum=1,
+                            maximum=50,
+                            value=5,
+                            step=5,
+                        )
+
+                        generate_image_frequency = gr.Slider(
+                            label="Image Generation Frequency (epochs)",
+                            minimum=10,
+                            maximum=100,
+                            value=10,
+                            step=10,
                         )
 
                     # Action buttons
@@ -372,6 +427,12 @@ class DreamBoothGUI:
                     lora_rank,
                     quantize,
                     batch_size,
+                    steps,
+                    guidance,
+                    width,
+                    height,
+                    plot_frequency,
+                    generate_image_frequency,
                 ],
                 outputs=[config_output, config_path_output],
             )

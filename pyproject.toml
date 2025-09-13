@@ -63,6 +63,7 @@ dev = [
     "pytest-timer>=1.0,<2.0",
     "mlx==0.27.1",  # Used ONLY during test runs to ensure deterministic test results
 ]
+gui = ["gradio>=4.0.0"]
 
 [project.urls]
 homepage = "https://github.com/filipstrand/mflux"
@@ -82,6 +83,8 @@ mflux-concept-from-image = "mflux.concept_from_image:main"
 mflux-save = "mflux.save:main"
 mflux-save-depth = "mflux.save_depth:main"
 mflux-train = "mflux.train:main"
+mflux-train-config = "mflux.train_config:main"
+mflux-train-gui = "mflux.train_gui:main"
 mflux-upscale = "mflux.upscale:main"
 mflux-lora-library = "mflux.lora_library:main"
 mflux-completions = "mflux.completions.install:main"

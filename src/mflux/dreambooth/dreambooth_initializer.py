@@ -10,6 +10,8 @@ from mflux.dreambooth.optimization.optimizer import Optimizer
 from mflux.dreambooth.state.training_spec import TrainingSpec
 from mflux.dreambooth.state.training_state import TrainingState
 from mflux.dreambooth.statistics.statistics import Statistics
+from mflux.dreambooth.validation.config_validator import DreamBoothConfigValidator
+from mflux.dreambooth.validation.preflight_checks import PreflightCheck
 from mflux.flux.flux import Flux1
 
 
@@ -19,12 +21,39 @@ class DreamBoothInitializer:
         config_path: str | None,
         checkpoint_path: str | None,
     ) -> tuple[Flux1, RuntimeConfig, TrainingSpec, TrainingState]:
+        # Validate configuration if starting from scratch
+        if config_path and not checkpoint_path:
+            print("🔍 Validating configuration...")
+            DreamBoothConfigValidator.load_and_validate(config_path)
+            print("✅ Configuration validated successfully\n")
+        
         # The training specification describing the details of the training process. It is resolved
         # differently depending on if training starts from scratch or resumes from checkpoint.
         training_spec = TrainingSpec.resolve(
             config_path=config_path,
             checkpoint_path=checkpoint_path,
         )
+        
+        # Run pre-flight checks
+        print("🚀 Running pre-flight checks...")
+        PreflightCheck.print_system_info()
+        success, warnings = PreflightCheck.run_all_checks(training_spec)
+        
+        # Print warnings
+        for warning in warnings:
+            if warning.startswith("ERROR:"):
+                print(f"❌ {warning}")
+            else:
+                print(f"⚠️  {warning}")
+        
+        if not success:
+            raise RuntimeError("Pre-flight checks failed. Please address the errors above.")
+        
+        if warnings:
+            print("\n⚠️  Some warnings were detected. Training will continue, but you may experience issues.")
+            input("Press Enter to continue or Ctrl+C to cancel...")
+        else:
+            print("✅ All pre-flight checks passed!\n")
 
         # Set global random seed to make training deterministic
         random.seed(training_spec.seed)

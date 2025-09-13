@@ -1585,6 +1585,11 @@ This will upscale your input image to the specified dimensions. The upscaler wor
 
 As of release [v.0.5.0](https://github.com/filipstrand/mflux/releases/tag/v.0.5.0), MFLUX has support for fine-tuning your own LoRA adapters using the [Dreambooth](https://dreambooth.github.io) technique.
 
+**📚 DreamBooth Documentation:**
+- [Quick Start Guide](DREAMBOOTH_GUIDE.md) - Comprehensive guide for beginners
+- [Image Preparation Guide](DREAMBOOTH_IMAGE_PREP_GUIDE.md) - Detailed instructions on preparing and labeling training images
+- [Interactive Config Generator](#option-1-interactive-configuration-generator-recommended-for-beginners) - Tool to create configurations easily
+
 ![image](src/mflux/assets/dreambooth.jpg)
 
 *This example shows the MFLUX training progression of the [included training example](#training-example) which is based on the [DreamBooth Dataset](https://github.com/google/dreambooth), also used in the [mlx-examples repo](https://github.com/ml-explore/mlx-examples/tree/main/flux#finetuning).*
@@ -1592,8 +1597,44 @@ As of release [v.0.5.0](https://github.com/filipstrand/mflux/releases/tag/v.0.5.
 #### Training configuration
 
 To describe a training run, you need to provide a [training configuration](src/mflux/dreambooth/_example/train.json) file which specifies the details such as
-what training data to use and various parameters. To try it out, one of the easiest ways is to start from the 
-provided [example configuration](src/mflux/dreambooth/_example/train.json) and simply use your own dataset and prompts by modifying the `examples` section of the json file.
+what training data to use and various parameters. 
+
+##### Option 1: GUI Interface (Easiest - NEW!)
+Launch the web-based GUI with drag-and-drop support:
+
+```sh
+# First time: Install with GUI support
+pip install 'mflux[gui]'
+
+# Then launch the GUI
+mflux-train-gui
+```
+
+This opens a browser interface where you can:
+- Drag and drop your training images
+- Configure settings with visual controls
+- See image previews
+- Start training with one click
+
+The GUI will automatically open a new Terminal window to show training progress.
+
+##### Option 2: Interactive Configuration Generator
+For command-line users, we provide an interactive configuration generator:
+
+```sh
+mflux-train-config
+```
+
+This tool will:
+- Help you choose appropriate settings for your use case (pets, people, art styles, etc.)
+- Validate your configuration and check for common issues
+- Create the necessary directory structure
+- Generate a ready-to-use configuration file
+
+For detailed guidance on preparing your training images, see the [Image Preparation Guide](DREAMBOOTH_IMAGE_PREP_GUIDE.md).
+
+##### Option 3: Manual Configuration
+For advanced users, you can start from the provided [example configuration](src/mflux/dreambooth/_example/train.json) and simply use your own dataset and prompts by modifying the `examples` section of the json file.
 
 #### Training example
 

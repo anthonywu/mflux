@@ -36,7 +36,7 @@ class DreamBoothConfigValidator:
         required_fields = ["model", "training_loop", "optimizer", "save", "lora_layers", "examples"]
         for field in required_fields:
             if field not in config:
-                errors.append(f"Missing required field: '{field}'")
+                errors.append(f"Missing required field: '{field}'")  # noqa: PERF401
 
         if errors:
             return False, errors
@@ -75,11 +75,6 @@ class DreamBoothConfigValidator:
 
         # Validate examples
         errors.extend(DreamBoothConfigValidator._validate_examples(config.get("examples", {}), base_path))
-
-        # Memory estimation
-        quantize = config.get("quantize", 4)
-        max_rank = DreamBoothConfigValidator._get_max_lora_rank(config.get("lora_layers", {}))
-        estimated_memory = DreamBoothConfigValidator.MEMORY_ESTIMATES.get((quantize, max_rank), 24)
 
         return len(errors) == 0, errors
 
@@ -132,7 +127,8 @@ class DreamBoothConfigValidator:
             else:
                 for idx in indices:
                     if idx < 0 or idx >= max_blocks:
-                        errors.append(f"{layer_name}: index {idx} out of range (0-{max_blocks - 1})")
+                        errors.append(f"{layer_name}: index {idx} out of range (0-{max_blocks - 1})")  # noqa: PERF401
+
         elif "start" in block_range and "end" in block_range:
             start = block_range["start"]
             end = block_range["end"]
@@ -221,7 +217,7 @@ class DreamBoothConfigValidator:
                 config = json.load(f)
         except json.JSONDecodeError as e:
             raise ConfigValidationError([f"Invalid JSON in configuration file: {e}"])
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             raise ConfigValidationError([f"Error reading configuration file: {e}"])
 
         # Validate configuration

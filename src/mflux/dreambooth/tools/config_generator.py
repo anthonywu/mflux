@@ -51,7 +51,7 @@ class ConfigGenerator:
     def __init__(self):
         pass
 
-    def run(self) -> Dict[str, Any]:
+    def run(self) -> dict:
         """Run the interactive configuration generator."""
         print("\n🎨 DreamBooth Configuration Generator\n")
         print("This tool will help you create a training configuration file.")
@@ -102,7 +102,7 @@ class ConfigGenerator:
                 choice = int(choice_str)
                 if 1 <= choice <= len(self.TEMPLATES):
                     return list(self.TEMPLATES.keys())[choice - 1]
-            except:
+            except ValueError:
                 pass
             print("Invalid choice. Please select 1-4.")
 

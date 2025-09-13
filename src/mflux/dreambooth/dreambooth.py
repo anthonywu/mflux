@@ -1,3 +1,5 @@
+from typing import Callable
+
 from mlx import nn
 from tqdm import tqdm
 
@@ -17,6 +19,7 @@ class DreamBooth:
         runtime_config: RuntimeConfig,
         training_spec: TrainingSpec,
         training_state: TrainingState,
+        on_batch_update: Callable | None = None,
     ):
         # Freeze the model and assign the LoRA layers to the model
         flux.freeze()
@@ -39,11 +42,14 @@ class DreamBooth:
         )
 
         # Training loop
-        for batch in batches:
+        for batch_count, batch in enumerate(batches, 1):
             # Perform one gradient update on the LoRA the weights
             loss, grads = train_step_function(batch)
             training_state.optimizer.optimizer.update(model=flux, gradients=grads)
             del loss, grads
+
+            if on_batch_update:
+                on_batch_update(batch_count)
 
             # Plot loss progress periodically
             if training_state.should_plot_loss(training_spec):

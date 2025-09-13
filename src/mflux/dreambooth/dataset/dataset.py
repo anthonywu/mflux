@@ -81,13 +81,7 @@ class Dataset:
                 f"Please ensure all images listed in your configuration exist.\n"
                 f"For help preparing images, see DREAMBOOTH_IMAGE_PREP_GUIDE.md"
             )
-        except Exception as e:
-            raise RuntimeError(
-                f"Error loading image {image_path}: {e}\n"
-                f"Ensure the image is a valid JPEG or PNG file.\n"
-                f"For image requirements, see DREAMBOOTH_IMAGE_PREP_GUIDE.md"
-            )
-        
+
         scaled_user_image = ImageUtil.scale_to_dimensions(image, target_width=width, target_height=height)
         encoded = vae.encode(ImageUtil.to_array(scaled_user_image))
         latents = ArrayUtil.pack_latents(encoded, width=width, height=height)

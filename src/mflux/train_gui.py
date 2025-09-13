@@ -7,6 +7,7 @@ import sys
 def main():
     try:
         from mflux.dreambooth.gui.gradio_interface import main as gui_main
+
         gui_main()
     except ImportError as e:
         if "gradio" in str(e).lower():

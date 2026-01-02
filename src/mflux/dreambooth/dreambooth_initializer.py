@@ -19,6 +19,7 @@ class DreamBoothInitializer:
     def initialize(
         config_path: str | None,
         checkpoint_path: str | None,
+        output_path_override: str | None = None,
     ) -> tuple[Flux1, RuntimeConfig, TrainingSpec, TrainingState]:
         # Validate configuration if starting from scratch
         if config_path and not checkpoint_path:
@@ -31,6 +32,7 @@ class DreamBoothInitializer:
         training_spec = TrainingSpec.resolve(
             config_path=config_path,
             checkpoint_path=checkpoint_path,
+            output_path_override=output_path_override,
         )
 
         # Set global random seed to make training deterministic

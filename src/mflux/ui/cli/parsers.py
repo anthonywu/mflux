@@ -189,6 +189,7 @@ class CommandLineParser(argparse.ArgumentParser):
     def add_training_arguments(self) -> None:
         self.add_argument("--train-config", type=str, required=False, help="Local path of the training configuration file")
         self.add_argument("--train-checkpoint", type=str, required=False, help="Local path of the checkpoint file which specifies how to continue the training process")
+        self.add_argument("--training-output-path", type=str, required=False, help="Override the output path for training artifacts (checkpoints, LoRA adapters). Takes precedence over config file.")
 
     def parse_args(self) -> argparse.Namespace:  # type: ignore
         namespace = super().parse_args()

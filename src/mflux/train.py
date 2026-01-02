@@ -20,6 +20,7 @@ def main():
     flux, runtime_config, training_spec, training_state = DreamBoothInitializer.initialize(
         config_path=args.train_config,
         checkpoint_path=args.train_checkpoint,
+        output_path_override=args.training_output_path,
     )
 
     # 2. Start the training process

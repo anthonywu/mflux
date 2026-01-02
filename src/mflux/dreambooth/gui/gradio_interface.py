@@ -31,29 +31,86 @@ class DreamBoothGUI:
         self.temp_dir = None
         self.config_path = None
 
-    def validate_images(self, files: List[str]) -> Tuple[bool, str, List[Image.Image]]:
-        """Validate uploaded images."""
+    def _count_caption_files(self, file_paths: List[str]) -> int:
+        """Count how many images have adjacent caption files."""
+        count = 0
+        for file_path in file_paths:
+            src = Path(file_path)
+            caption_patterns = [
+                src.with_name(f"{src.stem}-caption.txt"),
+                src.with_name(f"{src.stem}.txt"),
+                src.with_name(f"{src.stem}_caption.txt"),
+            ]
+            if any(p.exists() for p in caption_patterns):
+                count += 1
+        return count
+
+    def validate_images(self, files: List[str]) -> Tuple[bool, str, List[Image.Image], List[str]]:
+        """Validate uploaded images, skipping corrupted files."""
         if not files:
-            return False, "Please upload at least 3 images", []
+            return False, "Please upload at least 3 images", [], []
 
-        if len(files) < 3:
-            return False, f"Too few images ({len(files)}). Please upload at least 3-5 images.", []
-
-        if len(files) > 30:
-            return False, f"Too many images ({len(files)}). Maximum recommended is 30.", []
-
-        # Check image validity
+        # Check image validity, skipping problematic files
         valid_images = []
-        try:
-            for file_path in files:
+        valid_paths = []
+        skipped = []
+
+        for file_path in files:
+            try:
                 img = Image.open(file_path)
+                # Force load to catch truncated images
+                img.load()
                 if img.mode != "RGB":
                     img = img.convert("RGB")
                 valid_images.append(img)
-        except FileNotFoundError:
-            return False, f"Invalid image {Path(file_path).name}", []
+                valid_paths.append(file_path)
+            except (FileNotFoundError, OSError) as e:  # noqa: PERF203
+                skipped.append(f"{Path(file_path).name}: {e}")
 
-        return True, f"✅ {len(valid_images)} valid images loaded", valid_images
+        if len(valid_images) < 3:
+            skip_msg = f" Skipped: {', '.join(skipped)}" if skipped else ""
+            return False, f"Too few valid images ({len(valid_images)}). Need at least 3.{skip_msg}", [], []
+
+        if len(valid_images) > 30:
+            return False, f"Too many images ({len(valid_images)}). Maximum recommended is 30.", [], []
+
+        # Count caption files
+        captions_found = self._count_caption_files(valid_paths)
+
+        status = f"✅ {len(valid_images)} valid images loaded, {captions_found} caption files found"
+        if skipped:
+            status += (
+                f" (skipped {len(skipped)} corrupted: {', '.join(skipped[:3])}{'...' if len(skipped) > 3 else ''})"
+            )
+
+        return True, status, valid_images, valid_paths
+
+    def load_images_from_folder(self, folder_path: str) -> Tuple[List[Image.Image], str, List[str]]:
+        """Load images from a local folder path."""
+        if not folder_path:
+            return [], "Please enter a folder path", []
+
+        folder = Path(folder_path).expanduser()
+        if not folder.exists():
+            return [], f"❌ Folder not found: {folder}", []
+
+        if not folder.is_dir():
+            return [], f"❌ Not a directory: {folder}", []
+
+        # Find image files
+        image_extensions = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+        image_files = sorted(f for f in folder.iterdir() if f.is_file() and f.suffix.lower() in image_extensions)
+
+        if not image_files:
+            return [], f"❌ No images found in {folder}", []
+
+        # Validate using existing method
+        file_paths = [str(f) for f in image_files]
+        valid, status, images, valid_paths = self.validate_images(file_paths)
+
+        if valid:
+            return images, status, valid_paths
+        return [], status, []
 
     def generate_config(
         self,
@@ -93,6 +150,7 @@ class DreamBoothGUI:
 
         # Copy images to temp directory
         image_configs = []
+        captions_found = 0
         for i, file_path in enumerate(files):
             src = Path(file_path)
             dst = images_dir / f"{i:03d}{src.suffix}"
@@ -107,8 +165,26 @@ class DreamBoothGUI:
 
             img.save(dst)
 
-            # Create prompt based on subject type
-            prompt = f"photo of {trigger_word} {subject_type}"
+            # Look for caption file adjacent to image (e.g., foo.png -> foo-caption.txt or foo.txt)
+            prompt = None
+            caption_patterns = [
+                src.with_name(f"{src.stem}-caption.txt"),
+                src.with_name(f"{src.stem}.txt"),
+                src.with_name(f"{src.stem}_caption.txt"),
+            ]
+            for caption_path in caption_patterns:
+                if caption_path.exists():
+                    prompt = caption_path.read_text().strip()
+                    # Ensure trigger word is present in custom caption
+                    if trigger_word not in prompt:
+                        prompt = f"{trigger_word} {subject_type}, {prompt}"
+                    captions_found += 1
+                    break
+
+            # Fall back to auto-generated prompt
+            if not prompt:
+                prompt = f"photo of {trigger_word} {subject_type}"
+
             image_configs.append({"image": dst.name, "prompt": prompt})
 
         # Determine template based on subject type
@@ -177,8 +253,9 @@ class DreamBoothGUI:
 📦 Batch size: {batch_size}
 
 🖼️ Training images: {len(image_configs)}
+📝 Custom captions found: {captions_found} / {len(image_configs)}
 🔄 Epochs: {num_epochs}
-⏳ Total Number of Steps (image count x epochs count): {len(image_configs) * num_epochs}
+⏳ Total steps: {len(image_configs) * num_epochs} (images × epochs)
 
 🤞🏼 Ready to start training!
 """
@@ -259,18 +336,34 @@ class DreamBoothGUI:
             gr.Markdown("""
             # 🎨 MFLUX DreamBooth Training Interface
 
-            Drag and drop your images below to start training your own LoRA model!
+            Train your own LoRA model with Flux DreamBooth.
             """)
 
             with gr.Row():
                 with gr.Column(scale=1):
-                    # Image upload
-                    file_input = gr.File(
-                        label="📸 Drop Training Images Here",
-                        file_count="multiple",
-                        file_types=["image"],
-                        interactive=True,
+                    # Image input options
+                    gr.Markdown("#### Image Input (choose one method)")
+
+                    gr.Markdown(
+                        "*Use 10-40 high-quality images with varied angles, expressions, lighting, "
+                        "and backgrounds. 1:1 aspect ratio works best.*"
                     )
+
+                    with gr.Tab("Upload Files"):
+                        file_input = gr.File(
+                            label="📸 Drop Training Images Here",
+                            file_count="multiple",
+                            file_types=["image"],
+                            interactive=True,
+                        )
+
+                    with gr.Tab("Local Folder Path"):
+                        folder_path_input = gr.Textbox(
+                            label="📁 Local Folder Path",
+                            placeholder="/path/to/your/training/images",
+                            info="Enter the full path to a folder containing training images",
+                        )
+                        load_folder_btn = gr.Button("Load Images from Folder", variant="secondary")
 
                     # Image preview
                     image_preview = gr.Gallery(
@@ -287,6 +380,9 @@ class DreamBoothGUI:
                         interactive=False,
                     )
 
+                    # Hidden state to track loaded image paths (from either method)
+                    loaded_image_paths = gr.State([])
+
                     training_output = gr.Textbox(
                         label="Training Status",
                         lines=20,
@@ -299,20 +395,22 @@ class DreamBoothGUI:
 
                     subject_type = gr.Textbox(
                         label="Subject Type",
-                        placeholder="e.g., person, dog, toy, style",
+                        placeholder="e.g., woman, man, dog, cat, toy, style",
                         value="dog",
+                        info="For humans, use 'woman' or 'man' rather than 'person' for better results",
                     )
 
                     trigger_word = gr.Textbox(
                         label="Trigger Word",
                         value="sks",
-                        info="Unique identifier for your subject",
+                        info="Unique token to identify your subject. Keep it short and uncommon (e.g., sks, txcl, ohwx)",
                     )
 
                     model = gr.Dropdown(
                         label="Model",
                         choices=["dev", "schnell"],
                         value="dev",
+                        info="'dev' is higher quality but slower; 'schnell' is faster",
                     )
 
                     with gr.Accordion("Advanced Settings", open=False):
@@ -322,12 +420,13 @@ class DreamBoothGUI:
                             maximum=300,
                             value=int(os.environ.get("MFLUX_EPOCH_DEFAULT_VALUE", 100)),
                             step=10,
+                            info="~1000-1250 total steps is ideal for faces. Total steps = epochs × image count",
                         )
 
                         learning_rate = gr.Number(
                             label="Learning Rate",
                             value=1e-4,
-                            info="Scientific notation: 1e-4 = 0.0001",
+                            info="1e-4 is a good default. Lower (1e-5) for fine details, higher risks overfitting",
                         )
 
                         lora_rank = gr.Slider(
@@ -336,14 +435,14 @@ class DreamBoothGUI:
                             maximum=32,
                             value=8,
                             step=4,
-                            info="Higher = better quality, more memory",
+                            info="16-32 recommended for faces. Higher = better quality but more memory",
                         )
 
                         quantize = gr.Radio(
                             label="Quantization",
                             choices=[4, 8],
                             value=4,
-                            info="Higher = less memory usage",
+                            info="4-bit uses less memory; 8-bit slightly better quality",
                         )
 
                         batch_size = gr.Slider(
@@ -352,7 +451,7 @@ class DreamBoothGUI:
                             maximum=4,
                             value=1,
                             step=1,
-                            info="Higher = faster but more memory",
+                            info="Keep at 1 unless you have >48GB RAM",
                         )
 
                         steps = gr.Slider(
@@ -361,6 +460,7 @@ class DreamBoothGUI:
                             maximum=50,
                             value=20,
                             step=5,
+                            info="Inference steps for validation images during training",
                         )
 
                         guidance = gr.Slider(
@@ -369,6 +469,7 @@ class DreamBoothGUI:
                             maximum=7.0,
                             value=3.0,
                             step=0.1,
+                            info="CFG scale for validation images. 3.0-3.5 works well for Flux",
                         )
 
                         dimension_slider = functools.partial(
@@ -428,22 +529,34 @@ class DreamBoothGUI:
             # Wire up the interface
             def on_file_upload(files):
                 if not files:
-                    return None, "No files uploaded"
-                valid, status, images = self.validate_images(files)
+                    return None, "No files uploaded", []
+                valid, status, images, valid_paths = self.validate_images(files)
                 if valid:
-                    return images, status
-                return None, status
+                    return images, status, valid_paths
+                return None, status, []
+
+            def on_folder_load(folder_path):
+                images, status, file_paths = self.load_images_from_folder(folder_path)
+                if images:
+                    return images, status, file_paths
+                return None, status, []
 
             file_input.change(
                 on_file_upload,
                 inputs=[file_input],
-                outputs=[image_preview, validation_status],
+                outputs=[image_preview, validation_status, loaded_image_paths],
+            )
+
+            load_folder_btn.click(
+                on_folder_load,
+                inputs=[folder_path_input],
+                outputs=[image_preview, validation_status, loaded_image_paths],
             )
 
             create_config_btn.click(
                 self.generate_config,
                 inputs=[
-                    file_input,
+                    loaded_image_paths,
                     subject_type,
                     trigger_word,
                     model,
@@ -470,12 +583,18 @@ class DreamBoothGUI:
 
             # Add tips
             gr.Markdown("""
-            ### 💡 Tips
-            - Use 5-20 diverse images of your subject
-            - Keep trigger word unique (default "sks" works well)
-            - Start with default settings for first attempts
-            - Training typically takes 1-3 hours depending on settings
-            - Check [Image Preparation Guide](DREAMBOOTH_IMAGE_PREP_GUIDE.md) for best practices
+            ### 💡 Tips for Best Results
+            **Images:** Use 10-40 diverse, high-quality images. Vary angles, expressions, lighting, and backgrounds.
+            Flux benefits from background variety—it helps isolate the subject.
+
+            **For faces:** Use 'woman' or 'man' as subject type. Aim for ~1000-1250 total training steps
+            (e.g., 100 epochs × 12 images). LoRA rank 16-32 works best.
+
+            **Captions:** Flux works best with full-sentence captions. Place a text file next to each image:
+            `photo.png` → `photo.txt` or `photo-caption.txt`. Example caption:
+            *"sks woman, professional headshot, soft studio lighting, slight smile, facing camera"*
+
+            **If results look overtrained:** Reduce LoRA strength at inference (try 0.5-0.7) or retrain with fewer epochs.
             """)
 
         return interface

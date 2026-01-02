@@ -116,14 +116,24 @@ class TrainingSpec:
     checkpoint_path: str | None = None
 
     @staticmethod
-    def resolve(config_path: str | None, checkpoint_path: str | None) -> "TrainingSpec":
+    def resolve(
+        config_path: str | None,
+        checkpoint_path: str | None,
+        output_path_override: str | None = None,
+    ) -> "TrainingSpec":
         if not config_path and not checkpoint_path:
             raise ValueError("Either 'config_path' or 'checkpoint_path' must be provided.")
 
         if checkpoint_path:
-            return TrainingSpec._from_checkpoint(checkpoint_path, new_folder=False)
+            spec = TrainingSpec._from_checkpoint(checkpoint_path, new_folder=False)
+        else:
+            spec = TrainingSpec._from_config(config_path, new_folder=True)
 
-        return TrainingSpec._from_config(config_path, new_folder=True)
+        # Apply CLI override for output path if provided
+        if output_path_override:
+            spec.saver.output_path = TrainingSpec._resolve_output_path(output_path_override, new_folder=True)
+
+        return spec
 
     @staticmethod
     def _from_config(path: str, new_folder: bool = True) -> "TrainingSpec":

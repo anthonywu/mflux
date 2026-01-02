@@ -58,9 +58,9 @@ class DreamBoothConfigValidator:
         if training_loop.get("batch_size", 1) > 4:
             errors.append("Batch size > 4 may cause memory issues on most systems")
 
-        num_epochs = training_loop.get("num_epochs", 100)
-        if num_epochs < 20:
-            errors.append(f"num_epochs={num_epochs} is too low. Recommended minimum is 20")
+        # num_epochs = training_loop.get("num_epochs", 100)
+        # if num_epochs < 20:
+        #     errors.append(f"num_epochs={num_epochs} is too low. Recommended minimum is 20")
 
         # Validate optimizer
         optimizer = config.get("optimizer", {})

@@ -129,6 +129,7 @@ class DreamBoothGUI:
         height: int,
         plot_frequency: int,
         generate_image_frequency: int,
+        validation_prompt: str,
     ) -> Tuple[str, str]:
         """Generate training configuration from GUI inputs."""
         if not files:
@@ -223,7 +224,7 @@ class DreamBoothGUI:
             "instrumentation": {
                 "plot_frequency": plot_frequency,
                 "generate_image_frequency": generate_image_frequency,
-                "validation_prompt": f"photo of {trigger_word} {subject_type}",
+                "validation_prompt": validation_prompt.format(trigger_word=trigger_word, subject_type=subject_type),
             },
             "lora_layers": self._get_lora_config(template, lora_rank),
             "examples": {
@@ -396,7 +397,7 @@ class DreamBoothGUI:
                     subject_type = gr.Textbox(
                         label="Subject Type",
                         placeholder="e.g., woman, man, dog, cat, toy, style",
-                        value="dog",
+                        value="person",
                         info="For humans, use 'woman' or 'man' rather than 'person' for better results",
                     )
 
@@ -504,6 +505,12 @@ class DreamBoothGUI:
                             step=10,
                         )
 
+                        validation_prompt = gr.Textbox(
+                            label="Validation Prompt",
+                            value="photo of {trigger_word} {subject_type}, hd, 4k, professional photography",
+                            info="Prompt used for validation images. Use {trigger_word} and {subject_type} as placeholders.",
+                        )
+
                     # Action buttons
                     config_output = gr.Textbox(
                         label="Configuration Status",
@@ -571,6 +578,7 @@ class DreamBoothGUI:
                     height,
                     plot_frequency,
                     generate_image_frequency,
+                    validation_prompt,
                 ],
                 outputs=[config_output, config_path_output],
             )

@@ -19,6 +19,12 @@ def main():
             sys.exit(1)
         else:
             raise
+    except (KeyboardInterrupt, Exception) as e:
+        if isinstance(e, KeyboardInterrupt):
+            print("Training Job cancelled by user")
+            sys.exit(0)
+        else:
+            raise
 
 
 if __name__ == "__main__":

@@ -291,7 +291,7 @@ class DreamBoothGUI:
             return "❌ No configuration created. Please upload images first."
 
         try:
-            progress(0, desc="Initializing DreamBooth training...")
+            progress(0, desc="Loading Flux model and preparing dataset (this may take several minutes)...")
 
             # this section is the same controller as train.py
             flux, runtime_config, training_spec, training_state = DreamBoothInitializer.initialize(
@@ -604,7 +604,7 @@ def main():
     """Launch the GUI."""
     gui = DreamBoothGUI()
     interface = gui.create_interface()
-    interface.launch(server_name="127.0.0.1", server_port=7860, share=False, inbrowser=True)
+    interface.queue().launch(server_name="127.0.0.1", server_port=7860, share=False, inbrowser=False)
 
 
 if __name__ == "__main__":

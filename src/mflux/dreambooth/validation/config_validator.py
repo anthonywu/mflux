@@ -189,8 +189,6 @@ class DreamBoothConfigValidator:
                     prompt = img_config.get("prompt", "")
                     if not prompt:
                         errors.append(f"Image {i + 1}: empty prompt")
-                    elif "sks" not in prompt and "xyz" not in prompt and "tkn" not in prompt:
-                        errors.append(f"Image {i + 1}: prompt should include trigger word (e.g., 'sks')")
 
         return errors
 

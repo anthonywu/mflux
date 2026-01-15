@@ -106,11 +106,20 @@ class GeneratedImage:
     ) -> None:
         from mflux.utils.image_util import ImageUtil
 
+        if path == "-" or path == "/dev/stdout":
+            self._save_to_stdout()
+            return
+
         # Always save prompt file for FIBO models
         if self._is_fibo_model():
             self._save_prompt_file(path, overwrite)
 
         ImageUtil.save_image(self.image, path, self._get_metadata(), export_json_metadata, overwrite)
+
+    def _save_to_stdout(self) -> None:
+        import sys
+
+        self.image.save(sys.stdout.buffer, format="PNG")
 
     def save_with_heatmap(
         self,

@@ -1,3 +1,5 @@
+import sys
+
 from mflux.callbacks.callback_manager import CallbackManager
 from mflux.cli.defaults import defaults as ui_defaults
 from mflux.cli.parser.parsers import CommandLineParser
@@ -19,6 +21,11 @@ def main():
     parser.add_image_to_image_arguments(required=False)
     parser.add_output_arguments()
     args = parser.parse_args()
+
+    output_to_stdout = args.output == "-" or args.output == "/dev/stdout"
+
+    # Redirect prints to stderr when outputting binary to stdout
+    print_fn = lambda *a, **kw: print(*a, **kw, file=sys.stderr) if output_to_stdout else print
 
     # 0. Set default guidance value if not provided by user
     if args.guidance is None:
@@ -65,10 +72,10 @@ def main():
             # 4. Save the image
             image.save(path=args.output.format(seed=seed), export_json_metadata=args.metadata)
     except (StopImageGenerationException, PromptFileReadError) as exc:
-        print(exc)
+        print_fn(exc)
     finally:
         if memory_saver:
-            print(memory_saver.memory_stats())
+            print_fn(memory_saver.memory_stats())
 
 
 if __name__ == "__main__":

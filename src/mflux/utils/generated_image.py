@@ -117,9 +117,9 @@ class GeneratedImage:
         ImageUtil.save_image(self.image, path, self._get_metadata(), export_json_metadata, overwrite)
 
     def _save_to_stdout(self) -> None:
-        import sys
+        import os
 
-        self.image.save(sys.stdout.buffer, format="PNG")
+        self.image.save(os.fdopen(1, "wb"), format="PNG")
 
     def save_with_heatmap(
         self,

@@ -24,8 +24,9 @@ def main():
 
     output_to_stdout = args.output == "-" or args.output == "/dev/stdout"
 
-    # Redirect prints to stderr when outputting binary to stdout
-    print_fn = lambda *a, **kw: print(*a, **kw, file=sys.stderr) if output_to_stdout else print
+    # Redirect ALL stdout to stderr when outputting binary to stdout
+    if output_to_stdout:
+        sys.stdout = sys.stderr
 
     # 0. Set default guidance value if not provided by user
     if args.guidance is None:
@@ -72,10 +73,10 @@ def main():
             # 4. Save the image
             image.save(path=args.output.format(seed=seed), export_json_metadata=args.metadata)
     except (StopImageGenerationException, PromptFileReadError) as exc:
-        print_fn(exc)
+        print(exc)
     finally:
         if memory_saver:
-            print_fn(memory_saver.memory_stats())
+            print(memory_saver.memory_stats())
 
 
 if __name__ == "__main__":

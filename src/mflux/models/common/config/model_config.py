@@ -53,6 +53,19 @@ class ModelConfig:
         self.lora_training_guidance = lora_training_guidance
         self.supports_kv_cache = supports_kv_cache
 
+    @property
+    def canonical_alias(self) -> str:
+        """Short, human-readable model name for metadata (e.g. ``flux2-klein-9b-kv``).
+
+        For built-in models ``from_name`` returns the shared ``AVAILABLE_MODELS`` object,
+        so an identity match yields the friendly first alias. Third-party / local configs
+        are freshly built by ``ConfigResolution._create_config`` (inheriting the base
+        model's aliases), so we keep their ``model_name`` to avoid mislabeling them.
+        """
+        if any(self is m for m in AVAILABLE_MODELS.values()):
+            return self.aliases[0]
+        return self.model_name
+
     @staticmethod
     @lru_cache
     def dev() -> "ModelConfig":

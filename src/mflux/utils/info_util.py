@@ -24,10 +24,16 @@ class InfoUtil:
         # Model information
         lines.append("")
         if model := exif.get("model"):
-            if (orig_model := exif.get("original_model")) and orig_model != model:
-                lines.append(f"Model: {model} (Original: {orig_model})")
+            # Prefer the short, human-readable alias (e.g. "flux2-klein-9b-kv") while
+            # still showing the underlying repo/path it resolves to. See issue #415.
+            if (alias := exif.get("model_alias")) and alias != model:
+                model_label = f"{alias} ({model})"
             else:
-                lines.append(f"Model: {model}")
+                model_label = model
+            if (orig_model := exif.get("original_model")) and orig_model != model:
+                lines.append(f"Model: {model_label} (Original: {orig_model})")
+            else:
+                lines.append(f"Model: {model_label}")
 
         # Image dimensions
         if width := exif.get("width"):

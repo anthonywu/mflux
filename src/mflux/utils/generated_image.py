@@ -211,6 +211,7 @@ class GeneratedImage:
         metadata = {
             "mflux_version": VersionUtil.get_mflux_version(),
             "model": self.model_config.model_name,
+            "model_alias": self.model_config.canonical_alias,
             "base_model": str(self.model_config.base_model),
             "seed": self.seed,
             "steps": self.steps,

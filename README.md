@@ -56,6 +56,31 @@ mflux-generate-z-image-turbo \
 The first time you run this, the model will automatically download which can take some time. See the [model section](#-models) for the different options and features, and the [common README](src/mflux/models/common/README.md) for shared CLI patterns and examples.
 
 <details>
+<summary>Where are the downloaded model files stored?</summary>
+
+MFLUX downloads model weights through the Hugging Face Hub, so they land in the **standard Hugging Face cache**, not inside the MFLUX package. By default that is:
+
+- macOS: `~/.cache/huggingface/hub`
+- Linux: `~/.cache/huggingface/hub` (honors `$XDG_CACHE_HOME` if set)
+
+Each model is stored under `models--<org>--<name>/snapshots/<revision>/` with the large `.safetensors` shards de-duplicated in a sibling `blobs/` directory — this is why it looks like "the entire HF site directory". To inspect or reclaim disk space, use the Hugging Face CLI:
+
+```sh
+hf cache scan          # list cached repos and their sizes (older: huggingface-cli scan-cache)
+hf cache delete        # interactively delete cached revisions
+```
+
+To store models on another disk (for example an external SSD), point `HF_HOME` at it before running any MFLUX command:
+
+```sh
+export HF_HOME=/Volumes/T7/.cache/huggingface
+```
+
+A separate `MFLUX_CACHE_DIR` (`~/Library/Caches/mflux` on macOS, `~/.cache/mflux` on Linux) holds MFLUX-specific data such as downloaded LoRAs — base model weights are **not** stored there. See [Cache locations](src/mflux/models/common/README.md#cache-locations) for details.
+
+</details>
+
+<details>
 <summary>Python API</summary>
 
 Create a standalone `generate.py` script with inline `uv` dependencies:

@@ -11,6 +11,18 @@ from mflux.utils.exceptions import PromptFileReadError, StopImageGenerationExcep
 from mflux.utils.prompt_util import PromptUtil
 
 
+def resolve_model_config(model: str | None, base_model: str | None) -> ModelConfig:
+    """Honor the user's --model selection for in-context generation (issue #179).
+
+    Previously this CLI always loaded Flux.1-dev regardless of --model, so asking
+    for e.g. schnell still downloaded the full ~32GB dev weights. Default to dev
+    only when the user did not specify a model.
+    """
+    if model:
+        return ModelConfig.from_name(model_name=model, base_model=base_model)
+    return ModelConfig.dev()
+
+
 def main():
     # 0. Parse command line arguments
     parser = CommandLineParser(description="Generate an image using in-context LoRA with a reference image.")
@@ -37,9 +49,9 @@ def main():
         lora_paths.extend(args.lora_paths)
         lora_scales.extend(args.lora_scales or [1.0] * len(args.lora_paths))
 
-    # 1. Load the model
+    # 1. Load the model (honor --model / --base-model; default to dev)
     flux = Flux1InContextDev(
-        model_config=ModelConfig.dev(),
+        model_config=resolve_model_config(args.model, args.base_model),
         quantize=args.quantize,
         model_path=args.model_path,
         lora_paths=lora_paths or None,

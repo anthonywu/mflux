@@ -176,6 +176,28 @@ image.save("landscape.png")
 ```
 </details>
 
+### Expected repository layout
+
+A third-party `--model` repo (or local path) must match the **diffusers-style layout** of the corresponding `--base-model`, because MFLUX loads each component from a fixed subfolder. For a FLUX.1 base model that means:
+
+```text
+<repo-or-path>/
+├── transformer/        # DiT weights (*.safetensors)
+├── vae/
+├── text_encoder/       # CLIP
+├── text_encoder_2/     # T5
+├── tokenizer/          # CLIP tokenizer
+└── tokenizer_2/        # T5 tokenizer
+```
+
+Repos that use a different layout are **not** loadable as-is. Common mismatches:
+
+- The transformer lives in a differently named folder (e.g. `dit_model/` instead of `transformer/`).
+- A single text encoder is provided where the base model expects two (`text_encoder` + `text_encoder_2`), or the tokenizer class differs (e.g. a T5 tokenizer where a CLIP tokenizer is expected).
+- Components are shipped as a single top-level checkpoint rather than per-component subfolders.
+
+In these cases `mflux-save`/`mflux-generate` will fail while loading the tokenizer or transformer (for example `TypeError: expected str, bytes or os.PathLike object, not NoneType`, or `IndexError` from `tree_unflatten`). If you need MFLUX to consume a non-standard repo (such as F-Lite's `dit_model/` layout), re-arrange the files into the structure above, or follow the matching model README for the exact directory names that base model expects.
+
 ---
 
 ## Prompt files

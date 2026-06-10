@@ -71,14 +71,14 @@ class LoraTransforms:
 
     @staticmethod
     def _split_qkv_down(tensor: mx.array, index: int, num_splits: int = 3) -> mx.array:
-        rank = tensor.shape[0]
-        if rank % num_splits == 0:
-            chunk_size = rank // num_splits
-            start = index * chunk_size
-            end = start + chunk_size
-            return tensor[start:end, :]
-        else:
-            return tensor
+        # The down weight (lora_A) of a fused QKV LoRA is the shared low-rank input
+        # projection: shape [rank, in_features]. When splitting a fused qkv linear into
+        # separate q/k/v targets, only the up weight (lora_B) is split along its output
+        # dimension; q/k/v all share the same full down weight. Slicing the rank dimension
+        # here corrupts the decomposition (the resulting lora_A rank no longer matches the
+        # un-split lora_B rank). Return the down weight unchanged. See issue #423.
+        del index, num_splits  # kept for call-site signature compatibility
+        return tensor
 
     @staticmethod
     def _split_qkv_mlp_up(tensor: mx.array, index: int, dims: list[int] | None = None) -> mx.array:
@@ -91,11 +91,8 @@ class LoraTransforms:
 
     @staticmethod
     def _split_qkv_mlp_down(tensor: mx.array, index: int, num_splits: int = 4) -> mx.array:
-        rank = tensor.shape[0]
-        if rank % num_splits == 0:
-            chunk_size = rank // num_splits
-            start = index * chunk_size
-            end = start + chunk_size
-            return tensor[start:end, :]
-        else:
-            return tensor
+        # Same reasoning as _split_qkv_down, for fused qkv+mlp single-stream blocks: the
+        # down weight (lora_A) is the shared low-rank input projection and must not be
+        # split. Only the up weight is split across the fused output dims. See issue #423.
+        del index, num_splits  # kept for call-site signature compatibility
+        return tensor

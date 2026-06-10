@@ -555,6 +555,12 @@ mflux-generate-z-image-turbo \
 - **MFLUX cache**: set `MFLUX_CACHE_DIR` to override the default (`~/Library/Caches/mflux` on macOS, `~/.cache/mflux` on Linux).
 - **Hugging Face cache**: set `HF_HOME` (for example, `HF_HOME=/Volumes/T7/.cache/huggingface`). For more details, refer to the Hugging Face cache documentation.
 
+### Can I share a model directory with Ollama?
+
+Not the same files. Ollama stores models in its own GGUF blob store (`~/.ollama/models`), while MFLUX consumes diffusers-style `.safetensors` weights from the Hugging Face Hub cache. The two formats are not interchangeable, so MFLUX cannot read Ollama's blobs (and vice versa).
+
+What you *can* share is the **disk**: point `HF_HOME` at a common volume (e.g. an external SSD) so MFLUX's model cache lives alongside your other large model stores. If you want both tools rooted under one parent directory, set `HF_HOME` and Ollama's `OLLAMA_MODELS` to sibling paths on that volume — they will still keep separate, format-specific subtrees.
+
 Example with `HF_HOME` set for a generation run:
 
 ```sh

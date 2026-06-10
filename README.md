@@ -111,6 +111,30 @@ uv tool install --python 3.13 mflux
 ```
 </details>
 
+<details>
+<summary>⚠️ Troubleshooting: Homebrew Python upgrade breaks <code>uv tool install --upgrade mflux</code></summary>
+
+Homebrew aggressively keeps packages current, so an unrelated `brew install`/`brew upgrade` can switch your default `python3` to a version `uv` can't use for the MFLUX tool environment, after which `uv tool install --upgrade mflux` fails.
+
+Check which Python is active:
+
+```sh
+python3 --version
+uv python list
+```
+
+If Homebrew has moved you onto a newer Python than expected, pin a known-good version and re-install:
+
+```sh
+brew unlink python@3.13
+brew link --force --overwrite python@3.12
+uv tool install --upgrade mflux
+```
+
+`uv` still builds the tool environment against the Python required by MFLUX (`>=3.10`), so this only realigns the interpreter Homebrew exposes on your `PATH`. You can also sidestep Homebrew entirely by letting `uv` manage the interpreter: `uv tool install --python 3.12 mflux`.
+
+</details>
+
 ---
 
 ### 🎨 Models

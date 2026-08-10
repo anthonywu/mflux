@@ -137,8 +137,15 @@ class TrainingTrainer:
             initial=training_state.iterator.num_iterations,
         )
 
+        nonfinite_skips = 0
         for batch in batches:
             loss, grads = train_step_function(batch)
+            if not TrainingTrainer._step_is_finite(loss):
+                del loss, grads
+                nonfinite_skips += 1
+                if training_spec.low_ram:
+                    mx.clear_cache()
+                continue
             training_state.optimizer.optimizer.update(model=adapter.model(), gradients=grads)
             mx.eval(adapter.model().parameters(), training_state.optimizer.optimizer.state)
             del loss, grads
@@ -159,6 +166,8 @@ class TrainingTrainer:
             if training_spec.low_ram:
                 mx.clear_cache()
 
+        if nonfinite_skips:
+            print(f"Skipped {nonfinite_skips} non-finite (NaN/Inf) training step(s).")
         training_state.save(adapter, training_spec)
 
     @staticmethod
@@ -231,6 +240,16 @@ class TrainingTrainer:
                 )
             )
             del image
+
+
+    @staticmethod
+    def _step_is_finite(loss) -> bool:
+        """A non-finite loss (bf16 activation spikes, a NaN from one bad batch) must never
+        reach optimizer.update: the gradients it came with poison the LoRA weights and the
+        optimizer moments in a single step. The caller skips the step and the run continues
+        from the last good state. clip_grad_norm handles ordinary spikes; this catches
+        Inf/NaN."""
+        return bool(mx.isfinite(loss).item())
 
     @staticmethod
     def _generate_previews_with_optimizer_offload(

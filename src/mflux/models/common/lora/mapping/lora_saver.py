@@ -1,22 +1,10 @@
 import mlx.core as mx
 import mlx.nn as nn
 
+from mflux.models.common.lora.layer.dense_weight import dense_weight, is_fp8_linear
 from mflux.models.common.lora.layer.fused_linear_lora_layer import FusedLoRALinear
+from mflux.models.common.lora.layer.linear_lokr_layer import LoKrLinear
 from mflux.models.common.lora.layer.linear_lora_layer import LoRALinear
-
-
-def _is_fp8_linear(linear) -> bool:
-    # fp8 layers (e.g. Ideogram 4's Fp8Linear) store raw uint8 codes in .weight plus a
-    # per-row weight_scale. A float delta cannot be folded into the codes directly:
-    # `delta.astype(uint8)` truncates the (small) LoRA delta to zero, silently destroying
-    # the LoRA while leaving the base intact.
-    weight = getattr(linear, "weight", None)
-    return (
-        weight is not None
-        and weight.dtype == mx.uint8
-        and hasattr(linear, "weight_scale")
-        and not isinstance(linear, nn.QuantizedLinear)
-    )
 
 
 class LoRASaver:
@@ -33,25 +21,31 @@ class LoRASaver:
                 setattr(parent, attr_name, new_child)
 
         def _bake_single(lora_layer: LoRALinear) -> nn.Module:
-            base_linear = lora_layer.linear
-            if _is_fp8_linear(base_linear):
-                return LoRASaver._fold_fp8_loras_to_q8(base_linear, [lora_layer])
-            LoRASaver._apply_lora_delta(base_linear, lora_layer)
-            return base_linear
+            return LoRASaver._bake_lora_into_linear(lora_layer.linear, lora_layer)
+
+        def _bake_lokr(lokr_layer: LoKrLinear) -> nn.Module:
+            return LoRASaver._bake_lokr_into_linear(lokr_layer.linear, lokr_layer)
 
         def _bake_fused(fused_layer: FusedLoRALinear) -> nn.Module:
-            base_linear = fused_layer.base_linear
-            loras = [lora for lora in fused_layer.loras if isinstance(lora, LoRALinear)]
-            if _is_fp8_linear(base_linear):
-                return LoRASaver._fold_fp8_loras_to_q8(base_linear, loras)
-            for lora in loras:
-                LoRASaver._apply_lora_delta(base_linear, lora)
-            return base_linear
+            # Adapters are folded one at a time rather than summed: a LoKr carrying a
+            # dora_scale is a non-linear function of the CURRENT base weight, so each
+            # delta must see the result of the previous fold.
+            current = fused_layer.base_linear
+            for lora in fused_layer.loras:
+                if isinstance(lora, LoRALinear):
+                    current = LoRASaver._bake_lora_into_linear(current, lora)
+                elif isinstance(lora, LoKrLinear):
+                    current = LoRASaver._bake_lokr_into_linear(current, lora)
+            return current
 
         def _walk(obj, parent=None, attr_name=None, idx=None):
             # Replace wrappers first
             if isinstance(obj, FusedLoRALinear):
                 new_child = _bake_fused(obj)
+                _assign(parent, attr_name, idx, new_child)
+                obj = new_child
+            elif isinstance(obj, LoKrLinear):
+                new_child = _bake_lokr(obj)
                 _assign(parent, attr_name, idx, new_child)
                 obj = new_child
             elif isinstance(obj, LoRALinear):
@@ -81,42 +75,75 @@ class LoRASaver:
         return module
 
     @staticmethod
-    def _fold_fp8_loras_to_q8(base_linear: nn.Module, lora_layers: list[LoRALinear]) -> nn.Module:
-        # Dequantize the fp8 base ONCE, add the LoRA delta(s) in float32, and requantize to
-        # MLX q8 (group-64 affine keeps more mantissa than fp8-e4m3, so this loses no
-        # quality). Besides making the bake CORRECT on fp8 bases, the folded layer uses
-        # MLX's fused quantized-matmul kernel instead of materializing the full
-        # higher-precision weight matrix on every forward, which is also faster.
-        dense = mx.from_fp8(base_linear.weight, dtype=mx.float32) * base_linear.weight_scale[:, None]
-        merged = dense
-        for lora_layer in lora_layers:
-            delta = mx.transpose(mx.matmul(lora_layer.lora_A, lora_layer.lora_B))
-            merged = merged + lora_layer.scale * delta.astype(mx.float32)
-        bias = getattr(base_linear, "bias", None)
-        compute_dtype = getattr(base_linear, "compute_dtype", mx.bfloat16)
-        linear = nn.Linear(merged.shape[1], merged.shape[0], bias=bias is not None)
-        linear.weight = merged.astype(compute_dtype)
+    def _bake_lora_into_linear(base_linear: nn.Linear | nn.QuantizedLinear, lora_layer: LoRALinear) -> nn.Module:
+        delta = mx.matmul(lora_layer.lora_A, lora_layer.lora_B)
+        delta = mx.transpose(delta)
+        delta = lora_layer.scale * delta
+        return LoRASaver._bake_delta_into_linear(base_linear, delta)
+
+    @staticmethod
+    def _bake_lokr_into_linear(base_linear: nn.Linear | nn.QuantizedLinear, lokr_layer: LoKrLinear) -> nn.Module:
+        base_weight = dense_weight(base_linear)
+        delta = lokr_layer.scale * lokr_layer.delta_weight(base_weight=base_weight)
+        return LoRASaver._bake_delta_into_linear(base_linear, delta)
+
+    @staticmethod
+    def _quantize_dense(
+        merged: mx.array,
+        bias: mx.array | None,
+        group_size: int,
+        bits: int,
+        mode=None,
+    ) -> nn.Module:
+        dense_linear = nn.Linear(merged.shape[1], merged.shape[0], bias=bias is not None)
+        dense_linear.weight = merged
         if bias is not None:
-            linear.bias = bias
-        quantized = nn.QuantizedLinear.from_linear(linear, group_size=64, bits=8)
+            dense_linear.bias = bias
+        kwargs = {"group_size": group_size, "bits": bits}
+        if mode is not None:
+            kwargs["mode"] = mode
+        quantized = nn.QuantizedLinear.from_linear(dense_linear, **kwargs)
         mx.eval(quantized.parameters())
         return quantized
 
     @staticmethod
-    def _apply_lora_delta(base_linear: nn.Module, lora_layer: LoRALinear) -> None:
+    def _bake_delta_into_linear(
+        base_linear: nn.Linear | nn.QuantizedLinear,
+        delta: mx.array,
+    ) -> nn.Module:
         if not hasattr(base_linear, "weight"):
-            return
+            return base_linear
 
-        weight = base_linear.weight
-        delta = mx.matmul(lora_layer.lora_A, lora_layer.lora_B)  # shape: [in, out]
-        delta = mx.transpose(delta)  # shape: [out, in]
-        delta = lora_layer.scale * delta
+        base_weight = dense_weight(base_linear)
+        if base_weight.shape != delta.shape:
+            print(f"⚠️  Skipping LoRA bake due to shape mismatch: weight {base_weight.shape} vs delta {delta.shape}")
+            return base_linear
 
-        if weight.shape != delta.shape:
-            print(f"⚠️  Skipping LoRA bake due to shape mismatch: weight {weight.shape} vs delta {delta.shape}")
-            return
+        merged = base_weight + delta.astype(base_weight.dtype)
+        bias = getattr(base_linear, "bias", None)
 
         try:
-            base_linear.weight = weight + delta.astype(weight.dtype)
+            if is_fp8_linear(base_linear):
+                # The fp8 codes cannot carry the merged delta, so requantize to MLX q8
+                # instead: group-64 affine keeps more mantissa than fp8-e4m3, so nothing is
+                # lost relative to the base, and the result runs on the fused
+                # quantized-matmul kernel rather than materializing the dense weight per
+                # forward. Ideogram4Initializer._rebuild_q8_folded_layers handles loading
+                # a checkpoint containing these folded layers.
+                compute_dtype = getattr(base_linear, "compute_dtype", mx.bfloat16)
+                return LoRASaver._quantize_dense(merged.astype(compute_dtype), bias, group_size=64, bits=8)
+
+            if isinstance(base_linear, nn.QuantizedLinear):
+                return LoRASaver._quantize_dense(
+                    merged,
+                    bias,
+                    group_size=base_linear.group_size,
+                    bits=base_linear.bits,
+                    mode=base_linear.mode,
+                )
+
+            base_linear.weight = merged.astype(base_linear.weight.dtype)
+            return base_linear
         except Exception as e:  # noqa: BLE001
             print(f"⚠️  Failed to bake LoRA into base layer: {e}")
+            return base_linear

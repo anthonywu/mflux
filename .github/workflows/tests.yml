@@ -6,6 +6,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -13,6 +16,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a  # v4.2.0
@@ -32,9 +37,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.13"  # newest fully-supported version; pure-python wheel build makes the runtime floor ruff's job
 
@@ -52,5 +59,5 @@ jobs:
       - name: Run tests (everything except slow/high_memory_requirement)
         run: |
           source .venv/bin/activate
-          python -m pytest -m "not slow and not high_memory_requirement" -v
+          MFLUX_PRESERVE_TEST_OUTPUT=1 python -m pytest -m "not slow and not high_memory_requirement" -v
 

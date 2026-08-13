@@ -25,6 +25,12 @@ These rules exist to make agent work in this repo **predictable, verifiable, and
 
 - Use the Makefile targets for repo workflows: `make lint`, `make format`, `make check`.
 
+## CI / GitHub Actions
+
+- **Pin every `uses:` to a full commit SHA** with the release version as an inline comment, e.g. `uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0`. Never reference moving tags/branches (`@v4`, `@release/v1`) — tag repointing is a supply-chain attack vector, especially in the trusted-publishing release job.
+- When adding or updating an action, pin the SHA of the **latest release tag within the currently-used major** (resolve annotated tags down to the commit). Bump majors deliberately in their own PR.
+- Pinned tool versions otherwise live in **one source of truth**: `ruff` is the dev dependency in `pyproject.toml`; `.pre-commit-config.yaml` and the CI lint job carry comments pointing back to it.
+
 ## Code style
 
 - Avoid docstrings; prefer clear naming and focused helpers.

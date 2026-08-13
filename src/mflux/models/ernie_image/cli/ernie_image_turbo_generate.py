@@ -7,8 +7,19 @@ from mflux.utils.dimension_resolver import DimensionResolver
 from mflux.utils.exceptions import PromptFileReadError, StopImageGenerationException
 from mflux.utils.prompt_util import PromptUtil
 
+IGNORED_OPTIONS = {
+    "--negative-prompt": "turbo pins guidance to 1.0, so there is no unconditional pass for a negative prompt to steer.",
+}
 
-def main():
+CONDITIONAL_OPTIONS = {
+    "--guidance": {
+        "condition": "must be 1.0",
+        "reason": "turbo is guidance-distilled; any other value exits with an error.",
+    },
+}
+
+
+def build_parser() -> CommandLineParser:
     parser = CommandLineParser(
         description="Generate an image using ERNIE-Image-Turbo (distilled, 8 steps) based on a prompt."
     )
@@ -20,7 +31,13 @@ def main():
     parser.add_pid_decode_arguments()
     parser.add_output_arguments()
     parser.set_defaults(model="ernie-image-turbo")
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
+    CommandLineParser.warn_ignored_options(IGNORED_OPTIONS)
 
     if args.guidance is None:
         args.guidance = 1.0

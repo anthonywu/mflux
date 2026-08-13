@@ -7,9 +7,19 @@ from mflux.utils.dimension_resolver import DimensionResolver
 from mflux.utils.exceptions import PromptFileReadError, StopImageGenerationException
 from mflux.utils.prompt_util import PromptUtil
 
+REJECTED_OPTIONS = {
+    "--negative-prompt": "FLUX.2 has no negative branch; the CLI exits with an error when this is set.",
+}
 
-def main():
-    # 0. Parse command line arguments
+CONDITIONAL_OPTIONS = {
+    "--guidance": {
+        "condition": "base (non-distilled) FLUX.2 checkpoints",
+        "reason": "distilled checkpoints require guidance 1.0; any other value exits with an error.",
+    },
+}
+
+
+def build_parser() -> CommandLineParser:
     parser = CommandLineParser(description="Generate an image using Flux2 Klein.")
     parser.add_general_arguments()
     parser.add_model_arguments(require_model_arg=False)
@@ -18,6 +28,11 @@ def main():
     parser.add_image_to_image_arguments(required=False)
     parser.add_pid_decode_arguments()
     parser.add_output_arguments()
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
 
     if getattr(args, "negative_prompt", ""):

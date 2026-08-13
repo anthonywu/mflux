@@ -1,3 +1,4 @@
+import copy
 import logging
 from typing import TYPE_CHECKING
 
@@ -127,16 +128,15 @@ class ConfigResolution:
     def _create_config(model_name: str, base: "ModelConfig") -> "ModelConfig":
         from mflux.models.common.config.model_config import ModelConfig
 
-        return ModelConfig(
-            aliases=base.aliases,
-            model_name=model_name,
-            base_model=base.model_name,
-            controlnet_model=base.controlnet_model,
-            custom_transformer_model=base.custom_transformer_model,
-            num_train_steps=base.num_train_steps,
-            max_sequence_length=base.max_sequence_length,
-            supports_guidance=base.supports_guidance,
-            requires_sigma_shift=base.requires_sigma_shift,
-            priority=base.priority,
-            transformer_overrides=base.transformer_overrides,
-        )
+        # Carry every field the base declares and rewrite only identity. Enumerating
+        # fields here is what silently dropped the sigma schedule (and, for ERNIE and
+        # klein-9b-kv, the LoRA guidance and KV-cache flag): each field added to
+        # ModelConfig had to be remembered here too, and eventually one wasn't.
+        # Deep copy rather than a shallow one: AVAILABLE_MODELS is a process-wide
+        # singleton, and overrides nest (ERNIE's transformer_overrides holds a
+        # rope_axes_dim list), so a shallow copy leaves an inferred config able to
+        # mutate the registry for every later resolution.
+        carried = {key: copy.deepcopy(value) for key, value in vars(base).items() if not key.startswith("_")}
+        carried["model_name"] = model_name
+        carried["base_model"] = base.model_name
+        return ModelConfig(**carried)

@@ -137,7 +137,6 @@ class MLPBlock(nn.Module):
         self.router = nn.Linear(config.hidden_size, config.num_local_experts, bias=True)
 
     def __call__(self, x: mx.array) -> mx.array:
-
         g = self.router(x)
         experts, indices = mlx_topk(g, k=self.num_experts_per_tok, axis=-1)
         expert_weights = mx.softmax(experts, axis=-1, precise=True)
@@ -148,7 +147,6 @@ class MLPBlock(nn.Module):
         x = x * mx.expand_dims(expert_weights, axis=-1)
 
         y = x.sum(axis=-2)
-
 
         return y
 
@@ -179,9 +177,10 @@ class GptOssMoeModel(nn.Module):
         super().__init__()
         self.embed_tokens = nn.Embedding(args.vocab_size, args.hidden_size)
         self.norm = nn.RMSNorm(args.hidden_size, args.rms_norm_eps)
-        self.layer_types = args.layer_types or (
-            ["sliding_attention", "full_attention"] * ((args.num_hidden_layers + 1) // 2)
-        )[: args.num_hidden_layers]
+        self.layer_types = (
+            args.layer_types
+            or (["sliding_attention", "full_attention"] * ((args.num_hidden_layers + 1) // 2))[: args.num_hidden_layers]
+        )
         self.layers = [TransformerBlock(args) for _ in range(args.num_hidden_layers)]
         self.window_size = args.sliding_window
         self.swa_idx = self.layer_types.index("sliding_attention")

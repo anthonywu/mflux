@@ -168,7 +168,9 @@ class Krea2WeightMapping(WeightMapping):
             targets += Krea2WeightMapping._diffusers_text_fusion_block(
                 f"txtfusion.layerwise_blocks.{i}", f"text_fusion.layerwise_blocks.{i}"
             )
-        targets += [WeightTarget(to_pattern="txtfusion.projector.weight", from_pattern=["text_fusion.projector.weight"])]
+        targets += [
+            WeightTarget(to_pattern="txtfusion.projector.weight", from_pattern=["text_fusion.projector.weight"])
+        ]
         for i in range(2):
             targets += Krea2WeightMapping._diffusers_text_fusion_block(
                 f"txtfusion.refiner_blocks.{i}", f"text_fusion.refiner_blocks.{i}"

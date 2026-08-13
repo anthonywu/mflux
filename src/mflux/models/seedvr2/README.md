@@ -113,7 +113,7 @@ model = ZImageTurbo(
 )
 image = model.generate_image(
     seed=42,
-    prompt="class1cpa1nt a prestigious candlelit banquet table in a high-ceilinged palace hall. The scene features a bottle of \"Z-Image Vintage Select\" beside a sparkling crystal decanter. The table is overflowing with luxury: golden plates, silk napkins, and a centerpiece of dark red roses. Fine details of the wood grain on the table and the reflection of a chandelier in the polished surfaces. The lighting is dramatic and warm, reminiscent of Rembrandt. Masterful oil painting with aged texture and crackle glaze.",
+    prompt='class1cpa1nt a prestigious candlelit banquet table in a high-ceilinged palace hall. The scene features a bottle of "Z-Image Vintage Select" beside a sparkling crystal decanter. The table is overflowing with luxury: golden plates, silk napkins, and a centerpiece of dark red roses. Fine details of the wood grain on the table and the reflection of a chandelier in the polished surfaces. The lighting is dramatic and warm, reminiscent of Rembrandt. Masterful oil painting with aged texture and crackle glaze.',
     num_inference_steps=9,
     width=768,
     height=336,

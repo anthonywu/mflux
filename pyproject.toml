@@ -72,6 +72,8 @@ dev = [
     "matplotlib>3.10,<4.0",
     "pytest>=8.3.0,<9.0",
     "pytest-timer>=1.0,<2.0",
+    # Pinned exactly; keep in sync with .pre-commit-config.yaml and the CI lint job.
+    "ruff==0.16.3",
     "mlx==0.32.0; sys_platform=='darwin'",
     "mlx[cuda13]==0.30.3; sys_platform=='linux'",
 ]

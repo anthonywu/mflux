@@ -19,11 +19,12 @@ jobs:
         with:
           version: "latest"
 
-      # Ruff version pinned to .pre-commit-config.yaml (rev: v0.12.1)
+      # Ruff version pinned to the dev dependency in pyproject.toml and .pre-commit-config.yaml.
+      # Kept as uvx (not uv run) so the lint job stays fast — no full venv.
       - name: Run ruff
         run: |
-          uvx ruff@0.12.1 check src tests
-          uvx ruff@0.12.1 format --check src tests
+          uvx ruff@0.16.3 check src tests
+          uvx ruff@0.16.3 format --check src tests
 
   tests:
     runs-on: macos-14  # Apple Silicon runner (M1)

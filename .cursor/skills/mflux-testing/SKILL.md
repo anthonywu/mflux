@@ -17,7 +17,7 @@ This repo uses pytest with image-producing tests. Always preserve outputs for in
   - `just test-fast` (fast tests, no image generation)
   - `just test-slow` (slow tests, image generation)
   - `just test` (default selection, skips slow model tests)
-  - `just test-all` (full suite, slow tests download model weights)
+  - `just test-all` (all except high-memory tests; slow tests download model weights)
 - Always keep `MFLUX_PRESERVE_TEST_OUTPUT=1` on test runs (already built into the justfile test recipes).
 - If a change affects defaults, config resolution, metadata fields, or CLI behavior, add or update tests that cover the changed behavior directly instead of relying only on manual verification.
 - If tests fail:

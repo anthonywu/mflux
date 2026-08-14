@@ -54,7 +54,7 @@ check:
 # Run the default test selection (excludes slow model tests, see addopts in pyproject.toml)
 test: _test-run
 
-# Run the whole suite, slow tests included (downloads model weights)
+# Run the suite incl. slow tests, excluding high-memory ones (downloads model weights)
 test-all: (_test-run '-m "not high_memory_requirement"')
 
 # Run fast tests only (no image generation)
@@ -100,6 +100,7 @@ expect-uv:
         echo ""; \
         echo "Please install uv to continue:"; \
         echo "    https://github.com/astral-sh/uv?tab=readme-ov-file#installation"; \
+        exit 1; \
     fi
 
 # assume reasonably pre-commit is a safe dependency given its wide support (e.g. GitHub Actions integration)

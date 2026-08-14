@@ -53,10 +53,12 @@ jobs:
           python-version: "3.13"  # newest fully-supported version
           activate-environment: true
 
+      # Lockfile-pinned install (runtime + dev extras incl. pytest): dev/CI parity
+      # with `make test`, and --locked fails the job if uv.lock drifts from pyproject.
+      # Fresh-PyPI-resolution coverage lives in the py310-smoke leg's dry-run instead.
       - name: Install dependencies
         run: |
-          uv pip install -e .
-          uv pip install pytest
+          uv sync --all-extras --locked
 
       - name: Run tests (everything except slow/high_memory_requirement)
         run: |

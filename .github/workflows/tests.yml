@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -20,9 +24,9 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a  # v4.2.0
+        uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d  # v10.0.0
         with:
-          version: "latest"
+          version: "0.12.4"  # pinned uv: makes uv.lock rendering reproducible
 
       # Ruff version pinned to the dev dependency in pyproject.toml and .pre-commit-config.yaml.
       # Kept as uvx (not uv run) so the lint job stays fast — no full venv.
@@ -46,9 +50,9 @@ jobs:
           python-version: "3.13"  # newest fully-supported version; pure-python wheel build makes the runtime floor ruff's job
 
       - name: Install uv
-        uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a  # v4.2.0
+        uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d  # v10.0.0
         with:
-          version: "latest"
+          version: "0.12.4"  # pinned uv: makes uv.lock rendering reproducible
 
       - name: Install dependencies
         run: |
@@ -59,5 +63,31 @@ jobs:
       - name: Run tests (everything except slow/high_memory_requirement)
         run: |
           source .venv/bin/activate
-          MFLUX_PRESERVE_TEST_OUTPUT=1 python -m pytest -m "not slow and not high_memory_requirement" -v
+          python -m pytest -m "not slow and not high_memory_requirement" -v
+
+  py310-smoke:
+    # Cheap floor guard: ruff target-version catches 3.11+ syntax, but not
+    # 3.10-incompatible dependency markers or import-time stdlib usage.
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.10 (requires-python floor)
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d  # v10.0.0
+        with:
+          version: "0.12.4"
+
+      - name: Resolve + byte-compile under 3.10
+        run: |
+          uv pip install --dry-run --python python -e .
+          python -m compileall -q src
 

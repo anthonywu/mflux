@@ -50,6 +50,13 @@ format:
     git diff --stat
     @echo "✅ Formatting complete. Please review your git diffs, if any."
 
+# Run ty type checker (version pinned via pyproject.toml dev deps + uv.lock)
+typecheck:
+    @echo "🏗️ Running ty type checker (pinned via pyproject.toml)..."
+    uv sync --all-extras
+    uv run --no-sync ty check
+    @echo "✅ Type checking complete."
+
 # Run pre-commit auto-fixes and formatters on all files
 check:
     @echo "🏗️ Running pre-commit linter and formatters on files..."

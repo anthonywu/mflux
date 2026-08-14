@@ -189,4 +189,4 @@ disable_error_code = [
 error_summary = true
 ignore_missing_imports = true
 implicit_optional = true
-python_version = "3.12"
+python_version = "3.13"

@@ -37,14 +37,6 @@ ensure-pre-commit:
 RUFF_VERSION := $(shell sed -n 's/^    "ruff==\([0-9.]*\)",$$/\1/p' pyproject.toml)
 RUFF := uvx ruff@$(RUFF_VERSION)
 
-# ensure pytest is available
-.PHONY: ensure-pytest
-ensure-pytest:
-	@if ! uv run python -c "import pytest" 2>/dev/null; then \
-		echo "pytest required for testing. Installing pytest..."; \
-		uv pip install pytest; \
-	fi
-
 # Create virtual environment with uv
 .PHONY: venv-init
 venv-init: expect-arm64 expect-uv
@@ -57,7 +49,7 @@ venv-init: expect-arm64 expect-uv
 .PHONY: install
 install: venv-init ensure-pre-commit
 	# 🏗️ Installing dependencies and pre-commit hooks...
-	uv pip install -e .
+	uv sync --python $(PYTHON_VERSION)
 	# ✅ Dependencies installed.
 	pre-commit install
 	# ✅ Pre-commit hooks installed.
@@ -86,34 +78,34 @@ check:	# 🏗️ Running pre-commit linter and formatters on files...
 
 # Run the default test selection (excludes slow model tests, see addopts in pyproject.toml)
 .PHONY: test
-test: ensure-pytest
+test:
 	# 🏗️ Running tests...
-	uv pip install -e '.[dev]' # Install pinned MLX version specifically for testing
-	MFLUX_PRESERVE_TEST_OUTPUT=1 uv run python -m pytest
+	uv sync --all-extras # Locked env incl. dev extras (pinned mlx) for testing
+	MFLUX_PRESERVE_TEST_OUTPUT=1 uv run --no-sync python -m pytest
 	# ✅ Tests completed
 
 # Run the whole suite, slow tests included (downloads model weights)
 .PHONY: test-all
-test-all: ensure-pytest
+test-all:
 	# 🏗️ Running all tests (slow tests download model weights)...
-	uv pip install -e '.[dev]' # Install pinned MLX version specifically for testing
-	MFLUX_PRESERVE_TEST_OUTPUT=1 uv run python -m pytest -m "not high_memory_requirement"
+	uv sync --all-extras # Locked env incl. dev extras (pinned mlx) for testing
+	MFLUX_PRESERVE_TEST_OUTPUT=1 uv run --no-sync python -m pytest -m "not high_memory_requirement"
 	# ✅ All tests completed
 
 # Run fast tests only (no image generation)
 .PHONY: test-fast
-test-fast: ensure-pytest
+test-fast:
 	# 🏗️ Running fast tests (no image generation)...
-	uv pip install -e '.[dev]' # Install pinned MLX version specifically for testing
-	MFLUX_PRESERVE_TEST_OUTPUT=1 uv run python -m pytest -m fast
+	uv sync --all-extras # Locked env incl. dev extras (pinned mlx) for testing
+	MFLUX_PRESERVE_TEST_OUTPUT=1 uv run --no-sync python -m pytest -m fast
 	# ✅ Fast tests completed
 
 # Run slow tests only (image generation tests)
 .PHONY: test-slow
-test-slow: ensure-pytest
+test-slow:
 	# 🏗️ Running slow tests (image generation)...
-	uv pip install -e '.[dev]' # Install pinned MLX version specifically for testing
-	MFLUX_PRESERVE_TEST_OUTPUT=1 uv run python -m pytest -m slow
+	uv sync --all-extras # Locked env incl. dev extras (pinned mlx) for testing
+	MFLUX_PRESERVE_TEST_OUTPUT=1 uv run --no-sync python -m pytest -m slow
 	# ✅ Slow tests completed
 
 

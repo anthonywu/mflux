@@ -60,7 +60,7 @@ jobs:
           activate-environment: true
 
       # Lockfile-pinned install (runtime + dev extras incl. pytest): dev/CI parity
-      # with `make test`, and --locked fails the job if uv.lock drifts from pyproject.
+      # with `just test`, and --locked fails the job if uv.lock drifts from pyproject.
       # Fresh-PyPI-resolution coverage lives in the py310-smoke leg's dry-run instead.
       - name: Install dependencies
         run: |

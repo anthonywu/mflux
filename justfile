@@ -1,6 +1,6 @@
 # justfile for mflux Python 3.10+ project, using 3.13 as recommended maintainer Python as of Jan 2026
 
-set shell := ["bash", "-euc"]
+set shell := ["bash", "-euo", "pipefail", "-c"]
 
 python_version := "3.13"
 venv_dir := ".venv"
@@ -35,9 +35,13 @@ lint:
     uvx ruff@{{ ruff_version }} check
     @echo "✅ Linting complete."
 
-# Lint the justfile itself (fails if 'just --fmt' would reformat it)
+# Lint the justfile itself (fails if 'just --fmt' would reformat it; run 'just fmt-justfile' to fix)
 lint-justfile:
-    just --fmt --check
+    {{ just_executable() }} --fmt --check
+
+# Format the justfile in place
+fmt-justfile:
+    {{ just_executable() }} --fmt
 
 # Run ruff code formatter (mutates files; review your git diffs after)
 format:
@@ -73,7 +77,7 @@ build:
     TEMP_DIR=$(mktemp -d -t mflux-dist) && \
     mkdir -p "$TEMP_DIR/this-build" && \
     tar -xzf dist/mflux-*.tar.gz -C "$TEMP_DIR/this-build" && \
-    find "$TEMP_DIR/this-build" -type f -exec du -h {} \; | sort -rh | head -n 5
+    find "$TEMP_DIR/this-build" -type f -exec du -h {} \; | sort -rh | sed -n '1,5p' # sed reads the full stream; head would SIGPIPE sort under pipefail
 
 # Remove the virtual environment
 clean:
@@ -83,13 +87,14 @@ clean:
 
 # --- private helpers ----------------------------------------------------------
 
-# 🖥️ mflux and MLX are known to be compatible with aarch64 Mac and Linux only
+# 🖥️ mflux and MLX are known to be compatible with arm64/aarch64 Mac and Linux only
+# (host arch via uname, not just's build arch — an x86_64 just under Rosetta must not refuse)
 [private]
 expect-arm64:
-    @if [ "{{ arch() }}" != "aarch64" ]; then \
-        echo "mflux and MLX is known to be compatible with aarch64 Mac and Linux only. This justfile does not support your machine."; \
-        exit 1; \
-    fi
+    @case "$(uname -m)" in \
+        arm64 | aarch64) ;; \
+        *) echo "mflux and MLX is known to be compatible with arm64/aarch64 Mac and Linux only (detected: $(uname -m)). This justfile does not support your machine."; exit 1 ;; \
+    esac
 
 # we "expect" uv but should not install it for the user, let user *choose* to trust a third party installer
 [private]
@@ -116,6 +121,6 @@ ensure-pre-commit:
 _test-run args="":
     @echo "🏗️ Syncing locked environment with dev extras..."
     uv sync --all-extras
-    @echo "🏗️ Running pytest {{ args }} ..."
+    @echo "🏗️ Running pytest (see command line for selector)..."
     MFLUX_PRESERVE_TEST_OUTPUT=1 uv run --no-sync python -m pytest {{ args }}
     @echo "✅ Tests completed"

@@ -4,6 +4,7 @@ These rules exist to make agent work in this repo **predictable, verifiable, and
 
 ## Commands / environment
 
+- **Install `just` ≥ 1.50** (`brew install just`): all repo workflows run through the justfile — bare `just` (or `just --list`) shows every recipe. The version floor is set by `just --fmt` (stabilized in 1.50), which CI enforces via `just lint-justfile`; fix formatting with `just fmt-justfile`.
 - **Always use uv** for dependency management and running code.
   - Run scripts/binaries with `uv run <command>`.
   - Prefer `uv run python -m ...` for local modules.

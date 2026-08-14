@@ -13,6 +13,7 @@ This repo expects macOS arm64 and prefers `uv` + justfile recipes.
 
 ## Instructions
 
+- Prereq: `just` ≥ 1.50 (`brew install just`). CI lints the justfile with `just --fmt --check`; run `just fmt-justfile` to auto-fix formatting.
 - Prefer justfile recipes:
   - Install: `just install`
   - Lint: `just lint`

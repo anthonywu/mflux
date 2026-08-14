@@ -1,5 +1,5 @@
 name: 'Setup just'
-description: 'Install and cache the just command runner'
+description: 'Install the just command runner (SHA256-verified download on every run)'
 inputs:
   version:
     description: 'just version (pinned for stability; update after testing new releases)'
@@ -13,15 +13,9 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Cache just binary
-      id: cache-just
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: /usr/local/bin/just
-        key: just-${{ inputs.version }}-linux-x86_64
-
+    # No cache: the tarball is ~2.4MB (restore was as slow as the download),
+    # and caching skipped the checksum verification on hits.
     - name: Install just
-      if: steps.cache-just.outputs.cache-hit != 'true'
       shell: bash
       run: |
         curl -fsSL "https://github.com/casey/just/releases/download/${{ inputs.version }}/just-${{ inputs.version }}-x86_64-unknown-linux-musl.tar.gz" -o just.tar.gz

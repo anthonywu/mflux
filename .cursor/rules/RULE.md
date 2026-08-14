@@ -11,19 +11,19 @@ These rules exist to make agent work in this repo **predictable, verifiable, and
 - **Tool installs (CLI executables)**:
   - When you need to (re)install the local checkout as a `uv tool` (e.g. after changing CLI code), prefer an **editable install**:
     - `uv tool install --force --editable --reinstall .`
-- **Prefer Makefile targets** when they exist (they encode project-specific setup):
-  - `make install`, `make lint`, `make format`, `make test-fast`, `make test`, `make build`.
+- **Prefer justfile recipes** when they exist (they encode project-specific setup):
+  - `just install`, `just lint`, `just format`, `just test-fast`, `just test`, `just build`.
 
 ## Tests (goldens / image output)
 
-- **Always preserve test outputs** (for visual inspection): run tests with `MFLUX_PRESERVE_TEST_OUTPUT=1` (the Makefile test targets already do this).
+- **Always preserve test outputs** (for visual inspection): run tests with `MFLUX_PRESERVE_TEST_OUTPUT=1` (the justfile test recipes already do this).
 - **Do not update reference (“golden”) images** unless explicitly asked.
-- Prefer faster scopes first (`make test-fast` → `make test-slow` → `make test`).
+- Prefer faster scopes first (`just test-fast` → `just test-slow` → `just test`).
 - For the full playbook (how to handle failures and golden diffs), use the `mflux-testing` skill.
 
 ## Lint / format
 
-- Use the Makefile targets for repo workflows: `make lint`, `make format`, `make check`.
+- Use the justfile recipes for repo workflows: `just lint`, `just format`, `just check`.
 
 ## CI / GitHub Actions
 
@@ -85,7 +85,7 @@ Fix: Validate preview image at config load.
 
 - For image generation requests, **always use** `mflux-cli` to find the right command and flags.
 - Use `mflux-cli` for CLI capability discovery and usage help.
-- Use `mflux-dev-env` for setup, uv usage, and Makefile targets.
+- Use `mflux-dev-env` for setup, uv usage, and justfile recipes.
 - Use `mflux-testing` for running tests and handling golden images.
 - Use `mflux-manual-testing` for validating CLI outputs manually.
 - Use `mflux-debugging` for MLX vs PyTorch/diffusers comparisons.

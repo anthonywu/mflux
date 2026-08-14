@@ -26,7 +26,7 @@ install: venv-init ensure-pre-commit
 venv-init: expect-arm64 expect-uv
     @echo "🏗️ Creating virtual environment with recommended uv tool:"
     uv python install --quiet {{ python_version }}
-    uv venv --python {{ python_version }}
+    uv venv --clear --python {{ python_version }}
     @echo "✅ Python {{ python_version }} virtual environment created at {{ venv_dir }}"
 
 # Run ruff linter (read-only; use 'just check' to auto-apply fixes)

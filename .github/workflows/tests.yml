@@ -82,8 +82,10 @@ jobs:
           python-version: "3.10"
           activate-environment: true
 
-      - name: Resolve + byte-compile under 3.10
+      - name: Fresh-resolution + byte-compile under 3.10
         run: |
-          uv pip install --dry-run -e .
+          # uv-native canary: re-resolve the universal lock against live PyPI
+          # (catches range/marker debt for every platform incl. 3.10), no lock mutation
+          uv lock --upgrade --dry-run
           python -m compileall -q src
 

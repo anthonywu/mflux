@@ -1151,13 +1151,13 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "matplotlib", version = "3.11.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "mlx", version = "0.30.3", source = { registry = "https://pypi.org/simple" }, extra = ["cuda13"], marker = "python_full_version >= '3.11' and sys_platform == 'linux'" },
-    { name = "mlx", version = "0.32.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and sys_platform == 'darwin'" },
-    { name = "pytest", marker = "python_full_version >= '3.11'" },
-    { name = "pytest-timer", marker = "python_full_version >= '3.11'" },
-    { name = "ruff", marker = "python_full_version >= '3.11'" },
-    { name = "ty", marker = "python_full_version >= '3.11'" },
+    { name = "matplotlib", version = "3.11.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
+    { name = "mlx", version = "0.30.3", source = { registry = "https://pypi.org/simple" }, extra = ["cuda13"], marker = "python_full_version >= '3.13' and sys_platform == 'linux'" },
+    { name = "mlx", version = "0.32.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13' and sys_platform == 'darwin'" },
+    { name = "pytest", marker = "python_full_version >= '3.13'" },
+    { name = "pytest-timer", marker = "python_full_version >= '3.13'" },
+    { name = "ruff", marker = "python_full_version >= '3.13'" },
+    { name = "ty", marker = "python_full_version >= '3.13'" },
 ]
 
 [package.metadata]
@@ -1192,13 +1192,13 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "matplotlib", marker = "python_full_version >= '3.11'", specifier = ">=3.11,<4.0" },
-    { name = "mlx", marker = "python_full_version >= '3.11' and sys_platform == 'darwin'", specifier = "==0.32.0" },
-    { name = "mlx", extras = ["cuda13"], marker = "python_full_version >= '3.11' and sys_platform == 'linux'", specifier = "==0.30.3" },
-    { name = "pytest", marker = "python_full_version >= '3.11'", specifier = ">=9.1,<10.0" },
-    { name = "pytest-timer", marker = "python_full_version >= '3.11'", specifier = ">=1.0,<2.0" },
-    { name = "ruff", marker = "python_full_version >= '3.11'", specifier = "==0.16.3" },
-    { name = "ty", marker = "python_full_version >= '3.11'", specifier = "==0.0.72" },
+    { name = "matplotlib", marker = "python_full_version >= '3.13'", specifier = ">=3.11,<4.0" },
+    { name = "mlx", marker = "python_full_version >= '3.13' and sys_platform == 'darwin'", specifier = "==0.32.0" },
+    { name = "mlx", extras = ["cuda13"], marker = "python_full_version >= '3.13' and sys_platform == 'linux'", specifier = "==0.30.3" },
+    { name = "pytest", marker = "python_full_version >= '3.13'", specifier = ">=9.1,<10.0" },
+    { name = "pytest-timer", marker = "python_full_version >= '3.13'", specifier = ">=1.0,<2.0" },
+    { name = "ruff", marker = "python_full_version >= '3.13'", specifier = "==0.16.3" },
+    { name = "ty", marker = "python_full_version >= '3.13'", specifier = "==0.0.72" },
 ]
 
 [[package]]

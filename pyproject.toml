@@ -84,7 +84,8 @@ dev = [
 ]
 
 [tool.uv.dependency-groups]
-dev = { requires-python = ">=3.11" }
+# Matches the repo's dev baseline (justfile python_version, CI dev jobs).
+dev = { requires-python = ">=3.13" }
 
 [project.urls]
 homepage = "https://github.com/filipstrand/mflux"

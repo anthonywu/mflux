@@ -70,6 +70,14 @@ jobs:
         run: |
           python -m pytest -m "not slow and not high_memory_requirement" -v
 
+      # ty version comes from the pinned dev dependency in pyproject.toml (ty==0.0.72)
+      # via uv.lock. Runs in this job (not lint) because ty needs the synced venv to
+      # resolve imports (mlx, torch, ...) the ubuntu lint job doesn't install, and
+      # after pytest so a typing regression can't mask test signal.
+      - name: Run ty type checker
+        run: |
+          uv run --no-sync ty check
+
   py310-smoke:
     # Cheap floor guard: ruff target-version catches 3.11+ syntax, but not
     # 3.10-incompatible dependency markers or import-time stdlib usage.

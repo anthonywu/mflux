@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### ✨ Improvements
 
+- **Type checking migrated from mypy to astral's ty** (pinned `ty==0.0.72` in dev deps, pre-commit and CI): full-project checks in ~0.4s vs mypy's 2–9s. Pre-existing violations are baselined as ignored rules in `[tool.ty.rules]` (with counts) to be re-enabled and fixed piecemeal; new code must pass all non-baselined rules. Adds `just typecheck`. (#597)
 - **Silently dropped CLI options now warn**: a command that accepts an option it cannot honour says so at parse time instead of ignoring it, for example `--guidance` on a guidance-distilled model. Adds `mflux-capabilities`, a machine-readable dump of every image-generating command with its options, defaults, types and the status of each option (honored, ignored, conditional or rejected), in JSON, YAML or Markdown. (#499)
 
 ### ✨ Improvements

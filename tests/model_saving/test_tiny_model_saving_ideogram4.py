@@ -17,32 +17,33 @@ TINY_TRANSFORMER_CONFIG = Ideogram4Config(
 )
 
 
-def _tiny_components():
-    return {
-        "vae": TinyVAEStandIn(),
-        "conditional_transformer": Ideogram4Transformer(TINY_TRANSFORMER_CONFIG),
-        "unconditional_transformer": Ideogram4Transformer(TINY_TRANSFORMER_CONFIG),
-        "text_encoder": Qwen3TextEncoder(
-            vocab_size=128,
-            hidden_size=128,
-            num_hidden_layers=2,
-            num_attention_heads=2,
-            num_key_value_heads=1,
-            intermediate_size=128,
-            head_dim=64,
-        ),
-    }
+class TestTinyIdeogram4ModelSaving:
+    @pytest.mark.fast
+    def test_tiny_quantized_checkpoint_roundtrips_exactly(self, tmp_path):
+        # Fast twin of tests/model_saving/test_model_saving_ideogram4.py: the same
+        # ModelSaver -> WeightLoader -> WeightApplier seam, with real Ideogram 4
+        # component classes (incl. Fp8Linear layers) at tiny dimensions instead of
+        # the downloaded 26 GB checkpoint.
+        TinyCheckpointRoundtrip.save_and_reload_expecting_identical_weights(
+            weight_definition=Ideogram4WeightDefinition,
+            make_components=TestTinyIdeogram4ModelSaving._tiny_components,
+            base_path=tmp_path / "ideogram4_tiny_q8",
+            bits=8,
+        )
 
-
-@pytest.mark.fast
-def test_tiny_quantized_ideogram4_checkpoint_roundtrips_exactly(tmp_path):
-    # Fast twin of tests/model_saving/test_model_saving_ideogram4.py: the same
-    # ModelSaver -> WeightLoader -> WeightApplier seam, with real Ideogram 4
-    # component classes (incl. Fp8Linear layers) at tiny dimensions instead of
-    # the downloaded 26 GB checkpoint.
-    TinyCheckpointRoundtrip.save_and_reload_expecting_identical_weights(
-        weight_definition=Ideogram4WeightDefinition,
-        make_components=_tiny_components,
-        base_path=tmp_path / "ideogram4_tiny_q8",
-        bits=8,
-    )
+    @staticmethod
+    def _tiny_components():
+        return {
+            "vae": TinyVAEStandIn(),
+            "conditional_transformer": Ideogram4Transformer(TINY_TRANSFORMER_CONFIG),
+            "unconditional_transformer": Ideogram4Transformer(TINY_TRANSFORMER_CONFIG),
+            "text_encoder": Qwen3TextEncoder(
+                vocab_size=128,
+                hidden_size=128,
+                num_hidden_layers=2,
+                num_attention_heads=2,
+                num_key_value_heads=1,
+                intermediate_size=128,
+                head_dim=64,
+            ),
+        }

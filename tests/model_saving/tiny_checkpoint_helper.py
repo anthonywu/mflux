@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Callable
 
 import mlx.core as mx
 from mlx import nn
@@ -14,7 +15,7 @@ class TinyVAEStandIn(nn.Module):
     # The real VAEs are fixed-size (~170M param) architectures with no dimension
     # knobs. ModelSaver/WeightLoader treat every component as an opaque parameter
     # tree, so a small module walks the identical save/load code path.
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.conv_in = nn.Conv2d(3, 64, kernel_size=3)
         self.proj = nn.Linear(64, 64)
@@ -27,10 +28,13 @@ class TinyCheckpointRoundtrip:
     # stored-quantization restore), and require the parameter trees to match
     # exactly. No downloads, no tokenizers, no image generation.
 
+    # weight_definition is `type` rather than the src WeightDefinitionType alias:
+    # that TYPE_CHECKING-only union has drifted (it omits ErnieWeightDefinition,
+    # among others), and widening a src type alias is out of scope for tests.
     @staticmethod
     def save_and_reload_expecting_identical_weights(
-        weight_definition,
-        make_components,
+        weight_definition: type,
+        make_components: Callable[[], dict[str, nn.Module]],
         base_path: Path,
         bits: int = 8,
     ) -> None:
@@ -84,7 +88,7 @@ class TinyCheckpointRoundtrip:
             module.update(tree_unflatten(randomized))
 
     @staticmethod
-    def _quantize(components: dict[str, nn.Module], weight_definition, bits: int) -> None:
+    def _quantize(components: dict[str, nn.Module], weight_definition: type, bits: int) -> None:
         group_size = getattr(weight_definition, "quantization_group_size", 64)
         for module in components.values():
             nn.quantize(
@@ -95,7 +99,7 @@ class TinyCheckpointRoundtrip:
             )
 
     @staticmethod
-    def _as_model(components: dict[str, nn.Module], weight_definition):
+    def _as_model(components: dict[str, nn.Module], weight_definition: type):
         # ModelSaver reads components as attributes named by the definition
         # (model_attr, falling back to the component name) — same shape as the
         # real model objects whose save_model() delegates to ModelSaver.

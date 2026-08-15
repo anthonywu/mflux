@@ -176,11 +176,14 @@ section-order = [
     "local-folder",
 ]
 
+[tool.ty.environment]
+# typings/ holds an escape-hatch stub for mlx.core (compiled .so, no .pyi upstream).
+extra-paths = ["typings"]
+
 [tool.ty.rules]
 # One-time migration baseline (mypy -> ty, ty 0.0.72): every rule below had
 # pre-existing violations when ty was adopted (counts as of 2026-08-14).
 # Plan: re-enable (delete the ignore line) and fix piecemeal, one rule at a time.
-unresolved-import = "ignore"             # 491 (mostly `mlx.core` not resolvable by ty)
 invalid-argument-type = "ignore"         # 174
 unresolved-attribute = "ignore"          # 39
 invalid-assignment = "ignore"            # 36

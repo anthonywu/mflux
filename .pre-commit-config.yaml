@@ -19,3 +19,8 @@ repos:
     rev: v0.0.72
     hooks:
       - id: ty
+        # The hook runs `uv check`, which locks + syncs by default; isolated mode
+        # keeps it from rewriting uv.lock / .venv with the hook's bundled uv.
+        # --all-extras: pytest etc. live in the dev extra, which isolated mode
+        # would otherwise omit (making tests/ imports unresolvable).
+        args: [--isolated, --no-python-downloads, --all-extras]

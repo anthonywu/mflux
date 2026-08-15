@@ -13,7 +13,7 @@ try:
     from httpx import ProxyError as _ProxyError
 except ImportError:  # httpx rides in with huggingface_hub 1.x; degrade gracefully without it
 
-    class _ProxyError(Exception):  # type: ignore[no-redef]
+    class _ProxyError(Exception):
         pass
 
 

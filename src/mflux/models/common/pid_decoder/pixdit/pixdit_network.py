@@ -154,7 +154,7 @@ class PidNet(nn.Module):
         s = nn.silu(t_emb + s_main)
         s_cond_tokens = s
         if self.pit_lq_inject and pit_lq_feature is not None:
-            s_cond_tokens = self.pit_lq_gate(s_cond_tokens, pit_lq_feature, sigma=degrade_sigma)  # type: ignore[misc]
+            s_cond_tokens = self.pit_lq_gate(s_cond_tokens, pit_lq_feature, sigma=degrade_sigma)
         s_cond = s_cond_tokens.reshape(B * L, self.hidden_size)
 
         x_pixels = self.pixel_embedder(x, img_height=H, img_width=W, patch_size=self.patch_size)

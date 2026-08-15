@@ -67,7 +67,7 @@ class BooguImageTransformerBlock(nn.Module):
             mlp_output = self.feed_forward(self.ffn_norm1(hidden_states) * (1 + scale_mlp[:, None]))
             hidden_states = hidden_states + mx.tanh(gate_mlp)[:, None] * self.ffn_norm2(mlp_output)
         else:
-            norm_hidden_states = self.norm1(hidden_states)  # type: ignore[call-arg]
+            norm_hidden_states = self.norm1(hidden_states)
             attn_output = self.attn(norm_hidden_states, rotary_emb)
             hidden_states = hidden_states + self.norm2(attn_output)
             mlp_output = self.feed_forward(self.ffn_norm1(hidden_states))

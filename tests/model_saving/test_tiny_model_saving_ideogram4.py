@@ -29,6 +29,9 @@ class TestTinyIdeogram4ModelSaving:
             make_components=TestTinyIdeogram4ModelSaving._tiny_components,
             base_path=tmp_path / "ideogram4_tiny_q8",
             bits=8,
+            # Force shard boundaries so index.json/weight_map multi-shard paths are
+            # exercised — the size-based split never shards test-sized tensors.
+            tensors_per_shard=8,
         )
 
     @staticmethod

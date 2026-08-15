@@ -1,5 +1,7 @@
+import contextlib
 from pathlib import Path
 from typing import Callable
+from unittest import mock
 
 import mlx.core as mx
 from mlx import nn
@@ -37,6 +39,7 @@ class TinyCheckpointRoundtrip:
         make_components: Callable[[], dict[str, nn.Module]],
         base_path: Path,
         bits: int = 8,
+        tensors_per_shard: int | None = None,
     ) -> None:
         saved = make_components()
         # Many layers init deterministically (zeros/ones), which would let a
@@ -44,12 +47,23 @@ class TinyCheckpointRoundtrip:
         # parameter distinct random values so the equality check below has teeth.
         TinyCheckpointRoundtrip._randomize(saved, seed=0)
         TinyCheckpointRoundtrip._quantize(saved, weight_definition, bits)
-        ModelSaver.save_model(
-            model=TinyCheckpointRoundtrip._as_model(saved, weight_definition),
-            bits=bits,
-            base_path=str(base_path),
-            weight_definition=weight_definition,
-        )
+        # ModelSaver._split_weights splits by size (>= 1 GB), so tiny tensors always
+        # land in a single shard and the multi-shard save/load paths (index.json,
+        # weight_map, cross-shard ordering) go unexercised. tensors_per_shard forces
+        # a shard boundary every N tensors so those paths exist at test size.
+        with TinyCheckpointRoundtrip._forced_sharding(tensors_per_shard):
+            ModelSaver.save_model(
+                model=TinyCheckpointRoundtrip._as_model(saved, weight_definition),
+                bits=bits,
+                base_path=str(base_path),
+                weight_definition=weight_definition,
+            )
+        if tensors_per_shard is not None:
+            shard_files = list(base_path.rglob("*.safetensors"))
+            component_count = len(weight_definition.get_components())
+            assert len(shard_files) > component_count, (
+                f"expected multi-shard components, got {len(shard_files)} shards for {component_count} components"
+            )
 
         loaded = WeightLoader.load(weight_definition=weight_definition, model_path=str(base_path))
         assert loaded.meta_data.quantization_level == bits
@@ -73,6 +87,17 @@ class TinyCheckpointRoundtrip:
             assert saved_weights.keys() == fresh_weights.keys(), f"{name}: key sets differ"
             for key, value in saved_weights.items():
                 assert mx.array_equal(value, fresh_weights[key]), f"{name}.{key}: values differ after reload"
+
+    @staticmethod
+    def _forced_sharding(tensors_per_shard: int | None):
+        if tensors_per_shard is None:
+            return contextlib.nullcontext()
+
+        def _split_every_n(weights: dict, max_file_size_gb: int = 2) -> list[dict]:
+            items = list(weights.items())
+            return [dict(items[i : i + tensors_per_shard]) for i in range(0, len(items), tensors_per_shard)]
+
+        return mock.patch.object(ModelSaver, "_split_weights", staticmethod(_split_every_n))
 
     @staticmethod
     def _randomize(components: dict[str, nn.Module], seed: int) -> None:

@@ -17,6 +17,9 @@ class TestTinyErnieModelSaving:
             make_components=TestTinyErnieModelSaving._tiny_components,
             base_path=tmp_path / "ernie_tiny_q8",
             bits=8,
+            # Force shard boundaries so index.json/weight_map multi-shard paths are
+            # exercised — the size-based split never shards test-sized tensors.
+            tensors_per_shard=8,
         )
 
     @staticmethod

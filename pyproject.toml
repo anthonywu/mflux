@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.7.19,<0.8.0"]
+requires = ["uv_build>=0.12.5,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -67,10 +67,12 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 
-[project.optional-dependencies]
+# Dev tooling may require a newer Python than the published package;
+# the dist itself still supports every version in requires-python.
+[dependency-groups]
 dev = [
-    "matplotlib>3.10,<4.0",
-    "pytest>=8.3.0,<9.0",
+    "matplotlib>=3.11,<4.0",
+    "pytest>=9.1,<10.0",
     "pytest-timer>=1.0,<2.0",
     # Pinned exactly; keep in sync with .pre-commit-config.yaml and the CI lint job.
     "ruff==0.16.3",
@@ -80,6 +82,9 @@ dev = [
     "mlx==0.32.0; sys_platform=='darwin'",
     "mlx[cuda13]==0.30.3; sys_platform=='linux'",
 ]
+
+[tool.uv.dependency-groups]
+dev = { requires-python = ">=3.11" }
 
 [project.urls]
 homepage = "https://github.com/filipstrand/mflux"

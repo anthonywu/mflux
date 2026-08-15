@@ -251,7 +251,7 @@ def initialize_rope(
                 "mscale",
                 "mscale_all_dim",
             ]
-            if key in scaling_config
+            if key in scaling_config  # type: ignore[operator]
         }
         return YarnRoPE(
             dims=dims,

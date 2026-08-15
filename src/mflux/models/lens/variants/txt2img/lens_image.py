@@ -57,7 +57,7 @@ class LensImage:
             patterns=[TURBO_WEIGHTS_PATTERN],
         )
         self.transformer = LensTransformer()
-        weights = mx.load(str(dit_root / TURBO_WEIGHTS_PATTERN))
+        weights = mx.load(str(dit_root / TURBO_WEIGHTS_PATTERN))  # type: ignore[operator]
         self.transformer.update(tree_unflatten([(k, v.astype(mx.bfloat16)) for k, v in weights.items()]))
         if quantize is not None:
             nn.quantize(self.transformer, bits=quantize, class_predicate=lambda p, m: hasattr(m, "to_quantized"))

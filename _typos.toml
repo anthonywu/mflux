@@ -10,6 +10,7 @@ extend-ignore-identifiers-re = ["EmbedND", "embed_nd", "alle", "thw", "PNG", "PN
 # mis/unparseable = legitimate English.
 [default.extend-words]
 hed = "hed"
+HED = "HED"
 thre = "thre"
 caf = "caf"
 mis = "mis"

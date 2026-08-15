@@ -34,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Ideogram 4 gated weights**: Document the `HF_TOKEN` / `hf auth login` step alongside the existing note that access must be approved on the model card — authenticating is the half people miss, and without it an approved account still fails with a bare `401`/`403`. Adds a quantization section covering `mflux-save -q` and loading a saved checkpoint with `--model-path`. (#559)
 
+### 🧰 DX & Maintenance
+
+- **Dev workflow: Makefile replaced by justfile**: `make <target>` is gone; use `just <target>` instead (`just install`, `just lint`, `just format`, `just check`, `just test-fast`, …). Running bare `just` (or `just --list`) shows all recipes with descriptions. Semantics follow the post-#576 Makefile: `uv sync` installs and ruff is pinned from the `pyproject.toml` dev dependency. The CI lint job also lints the justfile itself via `just --fmt --check`, using the pinned `just-setup` composite action. Requires [`just`](https://github.com/casey/just) ≥ 1.50 locally. (#590)
+
 ## [0.18.1] - 2026-08-07
 
 ### 🎨 New Model Support

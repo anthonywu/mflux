@@ -35,6 +35,12 @@ jobs:
           uvx ruff@0.16.3 check src tests
           uvx ruff@0.16.3 format --check src tests
 
+      - name: Install just
+        uses: ./.github/actions/just-setup
+
+      - name: Lint justfile
+        run: just lint-justfile
+
   tests:
     runs-on: macos-14  # Apple Silicon runner (M1)
 
@@ -54,7 +60,7 @@ jobs:
           activate-environment: true
 
       # Lockfile-pinned install (runtime + dev extras incl. pytest): dev/CI parity
-      # with `make test`, and --locked fails the job if uv.lock drifts from pyproject.
+      # with `just test`, and --locked fails the job if uv.lock drifts from pyproject.
       # Fresh-PyPI-resolution coverage lives in the py310-smoke leg's dry-run instead.
       - name: Install dependencies
         run: |

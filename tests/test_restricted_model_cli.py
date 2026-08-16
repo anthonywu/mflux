@@ -2,55 +2,68 @@
 # Regression tests for the bug where mflux-generate-krea2 --model dev still constructed
 # krea/Krea-2-Turbo without a word of warning (same story on the z-image-turbo and both
 # ernie CLIs). Each single-model CLI now routes --model through
-# ConfigResolution.resolve_restricted: the model's registry aliases are accepted, a
-# checkpoint name that is unknown or infers to the CLI's own root is accepted alongside
-# --model-path, and anything foreign errors.
+# ConfigResolution.resolve_restricted: builtin registry names must be an alias of the
+# CLI's own model, while paths and HuggingFace repo ids (which parse_args marks by
+# setting model_path) keep the CLI's own config and load weights from the path, as they
+# always have.
+
+import sys
 
 import pytest
 
 from mflux.models.common.config.model_config import AVAILABLE_MODELS
 from mflux.models.common.resolution.config_resolution import ConfigResolution
+from mflux.models.ernie_image.cli import ernie_image_generate, ernie_image_turbo_generate
+from mflux.models.krea2.cli import krea2_generate
+from mflux.models.lens.cli import lens_generate
+from mflux.models.z_image.cli import z_image_turbo_generate
 from mflux.utils.exceptions import ModelConfigError
 
-# (registry key, a foreign model that must be rejected) for every single-model CLI.
+# (CLI module, registry key, a foreign model that must be rejected).
 CLI_MODELS = [
-    ("krea-2", "dev"),
-    ("z-image-turbo", "dev"),
-    ("ernie-image", "ernie-image-turbo"),
-    ("ernie-image-turbo", "ernie-image"),
-    ("lens-turbo", "dev"),
+    (krea2_generate, "krea-2", "dev"),
+    (z_image_turbo_generate, "z-image-turbo", "dev"),
+    (ernie_image_generate, "ernie-image", "ernie-image-turbo"),
+    (ernie_image_turbo_generate, "ernie-image-turbo", "ernie-image"),
+    (lens_generate, "lens-turbo", "dev"),
 ]
 
 
 @pytest.mark.fast
 class TestRestrictedModelConfig:
-    @pytest.mark.parametrize("registry_key,foreign", CLI_MODELS)
-    def test_omitted_model_returns_registry_entry(self, registry_key, foreign):
-        assert ConfigResolution.resolve_restricted(None, registry_key) is AVAILABLE_MODELS[registry_key]
+    # The CLI's own parser derives model_path from --model, so these tests go through
+    # build_parser().parse_args() rather than constructing argument combinations no CLI
+    # can produce.
+    @staticmethod
+    def _resolve_via_parser(monkeypatch, module, registry_key, extra_argv=()):
+        monkeypatch.setattr(sys, "argv", ["prog", "--prompt", "test", *extra_argv])
+        args = module.build_parser().parse_args()
+        return ConfigResolution.resolve_restricted(args.model, registry_key, model_path=args.model_path)
 
-    @pytest.mark.parametrize("registry_key,foreign", CLI_MODELS)
-    def test_all_aliases_accepted(self, registry_key, foreign):
+    @pytest.mark.parametrize("module,registry_key,foreign", CLI_MODELS, ids=lambda v: getattr(v, "__name__", v))
+    def test_omitted_model_returns_registry_entry(self, monkeypatch, module, registry_key, foreign):
+        config = self._resolve_via_parser(monkeypatch, module, registry_key)
+        assert config is AVAILABLE_MODELS[registry_key]
+
+    @pytest.mark.parametrize("module,registry_key,foreign", CLI_MODELS, ids=lambda v: getattr(v, "__name__", v))
+    def test_all_aliases_accepted(self, monkeypatch, module, registry_key, foreign):
         expected = AVAILABLE_MODELS[registry_key]
         for alias in expected.aliases:
-            assert ConfigResolution.resolve_restricted(alias, registry_key) is expected
+            config = self._resolve_via_parser(monkeypatch, module, registry_key, ["--model", alias])
+            assert config is expected
 
-    @pytest.mark.parametrize("registry_key,foreign", CLI_MODELS)
-    def test_foreign_model_rejected(self, registry_key, foreign):
+    @pytest.mark.parametrize("module,registry_key,foreign", CLI_MODELS, ids=lambda v: getattr(v, "__name__", v))
+    def test_foreign_model_rejected(self, monkeypatch, module, registry_key, foreign):
         with pytest.raises(ModelConfigError, match="only accepts the aliases"):
-            ConfigResolution.resolve_restricted(foreign, registry_key)
+            self._resolve_via_parser(monkeypatch, module, registry_key, ["--model", foreign])
 
-    @pytest.mark.parametrize("registry_key,foreign", CLI_MODELS)
-    def test_foreign_model_rejected_even_with_model_path(self, registry_key, foreign):
-        with pytest.raises(ModelConfigError, match="only accepts the aliases"):
-            ConfigResolution.resolve_restricted(foreign, registry_key, model_path="/tmp/saved")
-
-    def test_krea2_raw_rejected_by_krea2_cli(self):
+    def test_krea2_raw_rejected_by_krea2_cli(self, monkeypatch):
         # Same architecture, but the generate CLI runs the Turbo checkpoint only; Raw is
         # the training base and must not be silently swapped for Turbo.
         with pytest.raises(ModelConfigError, match="only accepts the aliases"):
-            ConfigResolution.resolve_restricted("krea-2-raw", "krea-2")
+            self._resolve_via_parser(monkeypatch, krea2_generate, "krea-2", ["--model", "krea-2-raw"])
 
-    def test_z_image_controlnet_alias_rejected_despite_shared_repo_id(self):
+    def test_z_image_controlnet_alias_rejected_despite_shared_repo_id(self, monkeypatch):
         # z-image-turbo and its ControlNet share model_name "Tongyi-MAI/Z-Image-Turbo";
         # identity comparison keeps the ControlNet alias out of the plain turbo CLI.
         assert (
@@ -58,42 +71,35 @@ class TestRestrictedModelConfig:
             == AVAILABLE_MODELS["z-image-turbo-controlnet-union-2.1"].model_name
         )
         with pytest.raises(ModelConfigError, match="only accepts the aliases"):
-            ConfigResolution.resolve_restricted("z-image-controlnet", "z-image-turbo")
+            self._resolve_via_parser(
+                monkeypatch, z_image_turbo_generate, "z-image-turbo", ["--model", "z-image-controlnet"]
+            )
 
-    def test_unknown_name_without_model_path_raises(self):
-        with pytest.raises(ModelConfigError):
-            ConfigResolution.resolve_restricted("totally-unknown-model", "krea-2")
+    def test_own_repo_id_keeps_cli_config(self, monkeypatch):
+        # The repo id is not a builtin spelling, so parse_args routes it through
+        # model_path; validation must not judge it (exact-match on this shared repo id
+        # resolves to the ControlNet entry). Metadata reruns (-C) restore the repo id
+        # from the sidecar and take this same path.
+        config = self._resolve_via_parser(
+            monkeypatch, z_image_turbo_generate, "z-image-turbo", ["--model", "Tongyi-MAI/Z-Image-Turbo"]
+        )
+        assert config is AVAILABLE_MODELS["z-image-turbo"]
 
-    def test_unknown_name_with_model_path_falls_back_to_default(self):
-        # A saved checkpoint has no builtin config; with --model-path the CLI keeps its
-        # own model config, matching the pre-existing lens behaviour.
-        config = ConfigResolution.resolve_restricted("totally-unknown-model", "krea-2", model_path="/tmp/saved")
+    @pytest.mark.parametrize(
+        "module,registry_key,path",
+        [
+            # Directory names whose substrings infer to a different model on main's
+            # resolution rules; each loaded on main and must keep loading.
+            (z_image_turbo_generate, "z-image-turbo", "~/models/zimage-q8"),
+            (krea2_generate, "krea-2", "~/Developer/mflux/my-turbo-q8"),
+            (ernie_image_turbo_generate, "ernie-image-turbo", "~/models/ernie-image-q4"),
+        ],
+        ids=lambda v: getattr(v, "__name__", v),
+    )
+    def test_local_checkpoint_path_keeps_cli_config(self, monkeypatch, module, registry_key, path):
+        config = self._resolve_via_parser(monkeypatch, module, registry_key, ["--model", path])
+        assert config is AVAILABLE_MODELS[registry_key]
+
+    def test_saved_checkpoint_name_keeps_cli_config(self, monkeypatch):
+        config = self._resolve_via_parser(monkeypatch, krea2_generate, "krea-2", ["--model", "my-krea-2-finetune"])
         assert config is AVAILABLE_MODELS["krea-2"]
-
-    def test_inferred_own_family_name_with_model_path_accepted(self):
-        # A custom checkpoint name containing this CLI's own alias substring-infers to
-        # its root; alongside --model-path that is this model, not a foreign one.
-        config = ConfigResolution.resolve_restricted("my-krea-2-finetune", "krea-2", model_path="/tmp/saved")
-        assert config is AVAILABLE_MODELS["krea-2"]
-
-    def test_inferred_own_family_name_without_model_path_rejected(self):
-        with pytest.raises(ModelConfigError, match="only accepts the aliases"):
-            ConfigResolution.resolve_restricted("my-krea-2-finetune", "krea-2")
-
-    def test_inferred_foreign_family_name_with_model_path_rejected(self):
-        # A custom name that infers to a different root stays an error even with a path.
-        with pytest.raises(ModelConfigError, match="only accepts the aliases"):
-            ConfigResolution.resolve_restricted("my-dev-finetune", "krea-2", model_path="/tmp/saved")
-
-
-@pytest.mark.fast
-class TestCliParsersStillBuild:
-    def test_parsers_build(self):
-        from mflux.models.ernie_image.cli.ernie_image_generate import build_parser as ernie
-        from mflux.models.ernie_image.cli.ernie_image_turbo_generate import build_parser as ernie_turbo
-        from mflux.models.krea2.cli.krea2_generate import build_parser as krea2
-        from mflux.models.lens.cli.lens_generate import build_parser as lens
-        from mflux.models.z_image.cli.z_image_turbo_generate import build_parser as z_turbo
-
-        for build in (krea2, z_turbo, ernie, ernie_turbo, lens):
-            assert build() is not None

@@ -45,7 +45,8 @@ class ConfigResolution:
     @staticmethod
     def resolve_restricted(model_name: str | None, registry_key: str, model_path: str | None = None) -> "ModelConfig":
         # Resolve --model for a CLI hard-wired to run exactly one registry model: any
-        # alias of `registry_key` is accepted, anything foreign errors, so e.g.
+        # alias of `registry_key` is accepted, checkpoint names are accepted alongside
+        # model_path (see the fallbacks below), and anything foreign errors, so e.g.
         # `mflux-generate-krea2 --model dev` fails loudly instead of silently running
         # Krea-2-Turbo. Compared by identity rather than model_name because registry
         # entries can share a repo id (z-image-turbo and its ControlNet).

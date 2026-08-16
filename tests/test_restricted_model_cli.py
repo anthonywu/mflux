@@ -2,7 +2,9 @@
 # Regression tests for the bug where mflux-generate-krea2 --model dev still constructed
 # krea/Krea-2-Turbo without a word of warning (same story on the z-image-turbo and both
 # ernie CLIs). Each single-model CLI now routes --model through
-# ConfigResolution.resolve_restricted, which accepts only that model's registry aliases.
+# ConfigResolution.resolve_restricted: the model's registry aliases are accepted, a
+# checkpoint name that is unknown or infers to the CLI's own root is accepted alongside
+# --model-path, and anything foreign errors.
 
 import pytest
 

@@ -1,6 +1,5 @@
 from mflux.callbacks.callback_manager import CallbackManager
-from mflux.cli.parser.parsers import CommandLineParser, lora_init_kwargs_from_args
-from mflux.models.common.config import ModelConfig
+from mflux.cli.parser.parsers import CommandLineParser, lora_init_kwargs_from_args, resolve_restricted_model_config
 from mflux.models.z_image.latent_creator import ZImageLatentCreator
 from mflux.models.z_image.variants.z_image import ZImage
 from mflux.utils.dimension_resolver import DimensionResolver
@@ -36,9 +35,10 @@ def main():
     args = parser.parse_args()
     CommandLineParser.warn_ignored_options(IGNORED_OPTIONS)
 
-    # 1. Load the model
+    # 1. Load the model (--model accepts only z-image-turbo aliases; the ControlNet
+    # entry shares this repo id but is a different model, so it is rejected too)
     model = ZImage(
-        model_config=ModelConfig.z_image_turbo(),
+        model_config=resolve_restricted_model_config(args, "z-image-turbo"),
         quantize=args.quantize,
         model_path=args.model_path,
         **lora_init_kwargs_from_args(args),

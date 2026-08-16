@@ -46,6 +46,35 @@ def int_or_special_value(value) -> int | scale_factor.ScaleFactor:
         )
 
 
+def resolve_restricted_model_config(args: argparse.Namespace, registry_key: str):
+    """Resolve --model for a CLI hard-wired to run exactly one registry model.
+
+    Accepts any alias of ``registry_key`` and returns its registry entry. An unknown
+    name is tolerated only alongside --model-path (a saved checkpoint whose name has no
+    builtin config); a name that resolves to any other model errors, so e.g.
+    ``mflux-generate-krea2 --model dev`` fails loudly instead of silently running
+    Krea-2-Turbo. Compared by identity rather than model_name because registry entries
+    can share a repo id (z-image-turbo and its ControlNet).
+    """
+    from mflux.models.common.config.model_config import AVAILABLE_MODELS
+    from mflux.utils.exceptions import ModelConfigError
+
+    expected = AVAILABLE_MODELS[registry_key]
+    if args.model is None:
+        return expected
+    try:
+        resolved = ConfigResolution.resolve(model_name=args.model)
+    except ModelConfigError:
+        if getattr(args, "model_path", None) is None:
+            raise
+        return expected
+    if resolved is not expected:
+        raise ModelConfigError(
+            f"'{args.model}' is not {expected.model_name}; this CLI only accepts the aliases {expected.aliases}."
+        )
+    return expected
+
+
 def lora_init_kwargs_from_args(args: argparse.Namespace) -> dict[str, t.Any]:
     return {
         "lora_paths": args.lora_paths,

@@ -43,6 +43,30 @@ class ConfigResolution:
         return next((key for key, config in AVAILABLE_MODELS.items() if config is root), None)
 
     @staticmethod
+    def resolve_restricted(model_name: str | None, registry_key: str, model_path: str | None = None) -> "ModelConfig":
+        # Resolve --model for a CLI hard-wired to run exactly one registry model. Only
+        # builtin registry spellings are judged: parse_args sets model_path exactly when
+        # --model is not a builtin name (a local checkpoint or a HuggingFace repo id),
+        # and those keep the CLI's own config while the weights load from the path, as
+        # they always have — judging a path by name-inference would reject directories
+        # like ~/models/zimage-q8 on the turbo CLI. A builtin name must be an alias of
+        # `registry_key`, so e.g. `mflux-generate-krea2 --model dev` fails loudly
+        # instead of silently running Krea-2-Turbo. Compared by identity rather than
+        # model_name because registry entries can share a repo id (z-image-turbo and its
+        # ControlNet).
+        from mflux.models.common.config.model_config import AVAILABLE_MODELS
+        from mflux.utils.exceptions import ModelConfigError
+
+        expected = AVAILABLE_MODELS[registry_key]
+        if model_name is None or model_path is not None:
+            return expected
+        if ConfigResolution.resolve(model_name=model_name) is not expected:
+            raise ModelConfigError(
+                f"'{model_name}' is not {expected.model_name}; this CLI only accepts the aliases {expected.aliases}."
+            )
+        return expected
+
+    @staticmethod
     def _resolve(model_name: str | None, base_model: str | None = None) -> tuple["ModelConfig", "ModelConfig"]:
         # Returns the resolved config and the registry entry it came from. The root is kept
         # separate because _create_config rewrites identity onto a copy, which leaves the

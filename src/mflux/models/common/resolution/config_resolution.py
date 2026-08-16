@@ -43,6 +43,38 @@ class ConfigResolution:
         return next((key for key, config in AVAILABLE_MODELS.items() if config is root), None)
 
     @staticmethod
+    def resolve_restricted(model_name: str | None, registry_key: str, model_path: str | None = None) -> "ModelConfig":
+        # Resolve --model for a CLI hard-wired to run exactly one registry model: any
+        # alias of `registry_key` is accepted, anything foreign errors, so e.g.
+        # `mflux-generate-krea2 --model dev` fails loudly instead of silently running
+        # Krea-2-Turbo. Compared by identity rather than model_name because registry
+        # entries can share a repo id (z-image-turbo and its ControlNet).
+        from mflux.models.common.config.model_config import AVAILABLE_MODELS
+        from mflux.utils.exceptions import ModelConfigError
+
+        expected = AVAILABLE_MODELS[registry_key]
+        if model_name is None:
+            return expected
+        try:
+            resolved, root = ConfigResolution._resolve(model_name=model_name)
+        except ModelConfigError:
+            # A saved checkpoint's name has no builtin config; with --model-path the CLI
+            # keeps its own config, without one the unknown name is a real error.
+            if model_path is None:
+                raise
+            return expected
+        if resolved is expected:
+            return expected
+        if model_path is not None and root is expected:
+            # A custom checkpoint name that substring-infers to this CLI's own root
+            # (e.g. "my-krea-2-finetune" alongside --model-path) is this model, not a
+            # foreign one; the weights come from the path either way.
+            return expected
+        raise ModelConfigError(
+            f"'{model_name}' is not {expected.model_name}; this CLI only accepts the aliases {expected.aliases}."
+        )
+
+    @staticmethod
     def _resolve(model_name: str | None, base_model: str | None = None) -> tuple["ModelConfig", "ModelConfig"]:
         # Returns the resolved config and the registry entry it came from. The root is kept
         # separate because _create_config rewrites identity onto a copy, which leaves the

@@ -1,5 +1,6 @@
 from mflux.callbacks.callback_manager import CallbackManager
-from mflux.cli.parser.parsers import CommandLineParser, lora_init_kwargs_from_args, resolve_restricted_model_config
+from mflux.cli.parser.parsers import CommandLineParser, lora_init_kwargs_from_args
+from mflux.models.common.resolution.config_resolution import ConfigResolution
 from mflux.models.ernie_image.latent_creator import ErnieLatentCreator
 from mflux.models.ernie_image.variants.txt2img.ernie_image import ErnieImage
 from mflux.utils.dimension_resolver import DimensionResolver
@@ -46,7 +47,7 @@ def main():
     # --model accepts only ernie-image-turbo aliases; base ernie-image has its own CLI
     # and anything else errors instead of being silently run as ERNIE-Image-Turbo.
     model = ErnieImage(
-        model_config=resolve_restricted_model_config(args, "ernie-image-turbo"),
+        model_config=ConfigResolution.resolve_restricted(args.model, "ernie-image-turbo", model_path=args.model_path),
         quantize=args.quantize,
         model_path=args.model_path,
         **lora_init_kwargs_from_args(args),

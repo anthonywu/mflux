@@ -1,5 +1,6 @@
 from mflux.callbacks.callback_manager import CallbackManager
-from mflux.cli.parser.parsers import CommandLineParser, resolve_restricted_model_config
+from mflux.cli.parser.parsers import CommandLineParser
+from mflux.models.common.resolution.config_resolution import ConfigResolution
 from mflux.models.flux2.latent_creator.flux2_latent_creator import Flux2LatentCreator
 from mflux.models.lens.variants.txt2img.lens_image import LensImage
 from mflux.utils.dimension_resolver import DimensionResolver
@@ -36,7 +37,7 @@ def main():
     # --model accepts only lens aliases; anything else errors instead of being
     # silently run as Lens Turbo.
     model = LensImage(
-        model_config=resolve_restricted_model_config(args, "lens-turbo"),
+        model_config=ConfigResolution.resolve_restricted(args.model, "lens-turbo", model_path=args.model_path),
         quantize=args.quantize,
         model_path=args.model_path,
     )

@@ -231,14 +231,31 @@ class TestConfigResolutionSharedRepoId:
     @pytest.mark.fast
     def test_every_root_key_and_alias_still_resolves_to_its_own_entry(self):
         # The tie-break must not leak: a ControlNet named by key or alias keeps resolving
-        # to the ControlNet, so repo id, canonical key and alias agree per model.
+        # to the ControlNet, so repo id, canonical key and alias agree per model. The key
+        # is probed explicitly — today every root key is also an alias, but the resolver
+        # only matches model_name and aliases, so a key that stopped being one would
+        # silently stop resolving.
         for key, config in AVAILABLE_MODELS.items():
             if config.base_model is not None:
                 continue
-            for spelling in config.aliases:
+            for spelling in {key, *config.aliases}:
                 owners = [c for c in AVAILABLE_MODELS.values() if c.base_model is None and spelling in c.aliases]
                 if len(owners) > 1:
                     continue  # a genuinely shared alias resolves by priority; not this test's concern
                 assert ConfigResolution.resolve(model_name=spelling) is config, (
-                    f"alias {spelling!r} no longer resolves to {key}"
+                    f"{spelling!r} no longer resolves to {key}"
                 )
+
+    @pytest.mark.fast
+    def test_root_aliases_are_unique(self):
+        # The base-variant tie-break only ever decides bare repo ids because no two roots
+        # claim the same alias. This pins that assumption: if an alias is ever shared, the
+        # tie-break starts deciding alias matches too and needs a deliberate rule.
+        owners: dict[str, list[str]] = {}
+        for key, config in AVAILABLE_MODELS.items():
+            if config.base_model is not None:
+                continue
+            for alias in config.aliases:
+                owners.setdefault(alias, []).append(key)
+        shared = {alias: keys for alias, keys in owners.items() if len(keys) > 1}
+        assert shared == {}, f"aliases claimed by more than one root: {shared}"

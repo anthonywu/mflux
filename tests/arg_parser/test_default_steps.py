@@ -13,6 +13,7 @@ import pytest
 from mflux.cli.defaults import defaults as ui_defaults
 from mflux.models.boogu.cli import boogu_image_generate
 from mflux.models.common.config.model_config import AVAILABLE_MODELS
+from mflux.models.common.resolution.config_resolution import ConfigResolution
 from mflux.models.ernie_image.cli import ernie_image_generate, ernie_image_turbo_generate
 from mflux.models.fibo.cli import fibo_edit, fibo_generate
 from mflux.models.flux2.cli import flux2_edit_generate, flux2_generate
@@ -112,11 +113,20 @@ def test_unknown_models_fall_back_to_the_default(model_name):
 
 
 @pytest.mark.fast
-def test_repo_id_lookup_prefers_the_lowest_priority_entry():
+def test_repo_id_lookup_agrees_with_config_resolution():
     # Tongyi-MAI/Z-Image-Turbo is the model_name of both z-image-turbo and its ControlNet.
-    # Ties must break the way ConfigResolution's exact-match rule breaks them, or the
-    # step count disagrees with the config that actually gets built.
-    shared = [k for k, c in AVAILABLE_MODELS.items() if c.model_name == "Tongyi-MAI/Z-Image-Turbo"]
-    assert len(shared) > 1
-    winner = min(shared, key=lambda k: AVAILABLE_MODELS[k].priority)
-    assert ui_defaults.model_inference_steps("Tongyi-MAI/Z-Image-Turbo") == ui_defaults.MODEL_INFERENCE_STEPS[winner]
+    # Ties must break the way ConfigResolution's exact-match rule breaks them (base
+    # variant first, then priority), or the step count disagrees with the config that
+    # actually gets built. Derived from the registry so every shared repo id is covered.
+    shared_repo_ids = {
+        c.model_name
+        for c in AVAILABLE_MODELS.values()
+        if sum(1 for other in AVAILABLE_MODELS.values() if other.model_name == c.model_name) > 1
+    }
+    assert "Tongyi-MAI/Z-Image-Turbo" in shared_repo_ids
+    for repo_id in shared_repo_ids:
+        winner = ConfigResolution.resolve_key(repo_id)
+        expected = ui_defaults.MODEL_INFERENCE_STEPS.get(winner, ui_defaults.DEFAULT_INFERENCE_STEPS)
+        assert ui_defaults.model_inference_steps(repo_id) == expected, (
+            f"{repo_id}: steps disagree with the resolved model {winner}"
+        )

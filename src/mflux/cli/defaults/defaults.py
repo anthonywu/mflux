@@ -108,9 +108,12 @@ def model_inference_steps(model_name: str | None) -> int:
             return MODEL_INFERENCE_STEPS.get(key, DEFAULT_INFERENCE_STEPS)
 
     # Several entries share one repo id (z-image-turbo and its ControlNet, the FLUX.1-dev
-    # ControlNets). Break the tie by priority, the same order ConfigResolution's
-    # exact-match rule uses, so the step count matches the config that actually gets built.
-    for key, config in sorted(AVAILABLE_MODELS.items(), key=lambda kv: kv[1].priority):
+    # ControlNets). Break the tie the same way ConfigResolution's exact-match rule does —
+    # base variant first, then priority — so the step count matches the config that
+    # actually gets built.
+    for key, config in sorted(
+        AVAILABLE_MODELS.items(), key=lambda kv: (kv[1].controlnet_model is not None, kv[1].priority)
+    ):
         if model_name == config.model_name:
             return MODEL_INFERENCE_STEPS.get(key, DEFAULT_INFERENCE_STEPS)
 

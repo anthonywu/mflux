@@ -1,5 +1,6 @@
 import pytest
 
+from mflux.models.common.config.model_config import AVAILABLE_MODELS
 from mflux.models.common.resolution.config_resolution import ConfigResolution
 from mflux.utils.exceptions import InvalidBaseModel, ModelConfigError
 
@@ -194,3 +195,67 @@ class TestConfigResolutionRules:
         config = ConfigResolution.resolve(model_name="schnell-style-dev", base_model="dev")
 
         assert config.base_model == "black-forest-labs/FLUX.1-dev"
+
+
+class TestConfigResolutionSharedRepoId:
+    # Several registry roots share a model_name with a ControlNet derivative, so a bare
+    # repo id is ambiguous. The rule: a derived variant is always addressed by its own
+    # key or alias, so the repo id belongs to the base entry. Before this rule, priority
+    # order decided the tie and `Tongyi-MAI/Z-Image-Turbo` resolved to the ControlNet —
+    # every resolver caller (generate CLIs, mflux-save dispatch) then built the wrong model.
+
+    @staticmethod
+    def _roots_by_shared_repo_id() -> dict[str, list]:
+        roots: dict[str, list] = {}
+        for config in AVAILABLE_MODELS.values():
+            if config.base_model is None:
+                roots.setdefault(config.model_name, []).append(config)
+        return {name: entries for name, entries in roots.items() if len(entries) > 1}
+
+    @pytest.mark.fast
+    def test_a_shared_repo_id_resolves_to_the_base_variant(self):
+        for repo_id, entries in self._roots_by_shared_repo_id().items():
+            resolved = ConfigResolution.resolve(model_name=repo_id)
+            assert resolved.controlnet_model is None, (
+                f"{repo_id} resolved to the ControlNet variant {resolved.controlnet_model}"
+            )
+            assert resolved in entries
+
+    @pytest.mark.fast
+    def test_z_image_repo_id_resolves_to_plain_turbo(self):
+        resolved = ConfigResolution.resolve(model_name="Tongyi-MAI/Z-Image-Turbo")
+
+        assert resolved is AVAILABLE_MODELS["z-image-turbo"]
+        assert ConfigResolution.resolve_key(model_name="Tongyi-MAI/Z-Image-Turbo") == "z-image-turbo"
+
+    @pytest.mark.fast
+    def test_every_root_key_and_alias_still_resolves_to_its_own_entry(self):
+        # The tie-break must not leak: a ControlNet named by key or alias keeps resolving
+        # to the ControlNet, so repo id, canonical key and alias agree per model. The key
+        # is probed explicitly — today every root key is also an alias, but the resolver
+        # only matches model_name and aliases, so a key that stopped being one would
+        # silently stop resolving.
+        for key, config in AVAILABLE_MODELS.items():
+            if config.base_model is not None:
+                continue
+            for spelling in {key, *config.aliases}:
+                owners = [c for c in AVAILABLE_MODELS.values() if c.base_model is None and spelling in c.aliases]
+                if len(owners) > 1:
+                    continue  # a genuinely shared alias resolves by priority; not this test's concern
+                assert ConfigResolution.resolve(model_name=spelling) is config, (
+                    f"{spelling!r} no longer resolves to {key}"
+                )
+
+    @pytest.mark.fast
+    def test_root_aliases_are_unique(self):
+        # The base-variant tie-break only ever decides bare repo ids because no two roots
+        # claim the same alias. This pins that assumption: if an alias is ever shared, the
+        # tie-break starts deciding alias matches too and needs a deliberate rule.
+        owners: dict[str, list[str]] = {}
+        for key, config in AVAILABLE_MODELS.items():
+            if config.base_model is not None:
+                continue
+            for alias in config.aliases:
+                owners.setdefault(alias, []).append(key)
+        shared = {alias: keys for alias, keys in owners.items() if len(keys) > 1}
+        assert shared == {}, f"aliases claimed by more than one root: {shared}"

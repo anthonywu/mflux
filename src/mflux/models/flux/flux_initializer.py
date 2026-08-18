@@ -1,9 +1,12 @@
+from pathlib import Path
+
 from mflux.callbacks.callback_registry import CallbackRegistry
 from mflux.models.common.config import ModelConfig
 from mflux.models.common.lora.mapping.lora_loader import LoRALoader
 from mflux.models.common.tokenizer import TokenizerLoader
 from mflux.models.common.weights.loading.loaded_weights import LoadedWeights
 from mflux.models.common.weights.loading.weight_applier import WeightApplier
+from mflux.models.common.weights.loading.weight_definition import ComponentDefinition
 from mflux.models.common.weights.loading.weight_loader import WeightLoader
 from mflux.models.depth_pro.model.depth_pro import DepthPro
 from mflux.models.flux.model.flux_text_encoder.clip_encoder.clip_encoder import CLIPEncoder
@@ -118,11 +121,7 @@ class FluxInitializer:
             bake_lora=bake_lora,
         )
 
-        controlnet_component = FluxControlnetWeightDefinition.get_controlnet_component()
-        controlnet_weights = WeightLoader.load_single(
-            component=controlnet_component,
-            repo_id=model_config.controlnet_model,
-        )
+        controlnet_component, controlnet_weights = FluxInitializer._load_controlnet_weights(model_config, model_path)
         model.transformer_controlnet = TransformerControlnet(
             model_config=model_config,
             num_transformer_blocks=controlnet_weights.num_transformer_blocks(),
@@ -232,4 +231,30 @@ class FluxInitializer:
             lora_paths=lora_paths,
             lora_scales=lora_scales,
             bake_lora=bake_lora,
+        )
+
+    @staticmethod
+    def _load_controlnet_weights(
+        model_config: ModelConfig,
+        model_path: str | None,
+    ) -> tuple[ComponentDefinition, LoadedWeights]:
+        # A model saved with mflux-save carries its ControlNet under transformer_controlnet/;
+        # honor it so offline reloads work and saved weights (a -q quantization, a fine-tune)
+        # are not silently swapped for the remote checkpoint. The local layout is mflux
+        # format, so it loads through the saved-components definition; only a hub download
+        # needs get_controlnet_component's HF-name mapping.
+        local_root = Path(model_path) if model_path is not None else None
+        if local_root is not None and any((local_root / "transformer_controlnet").glob("*.safetensors")):
+            controlnet_component = next(
+                c for c in FluxControlnetWeightDefinition.get_components() if c.name == "transformer_controlnet"
+            )
+            return controlnet_component, WeightLoader.load_single_local(
+                component=controlnet_component,
+                root_path=local_root,
+            )
+
+        controlnet_component = FluxControlnetWeightDefinition.get_controlnet_component()
+        return controlnet_component, WeightLoader.load_single(
+            component=controlnet_component,
+            repo_id=model_config.controlnet_model,
         )

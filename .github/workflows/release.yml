@@ -11,16 +11,25 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Deployment gate: requires reviewer approval and restricts publishable
+    # branches per the environment's protection rules (Settings > Environments > pypi).
+    # The PyPI trusted publisher is also pinned to this environment name.
+    environment: pypi
     permissions:
       contents: write
       pull-requests: read
       id-token: write
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          fetch-depth: 0 # Need full history for git operations
+      - name: Validate branch
+        # Defense in depth: the pypi environment's deployment branch policy is
+        # the primary gate; this fails fast with a clear message if dispatched
+        # from any ref other than main.
+        run: |
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "❌ Releases may only be published from main (got ${{ github.ref }})"
+            exit 1
+          fi
 
       - name: Validate confirmation
         run: |
@@ -28,6 +37,11 @@ jobs:
             echo "❌ Must type 'publish' to confirm release"
             exit 1
           fi
+
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0 # Need full history for git operations
 
       - name: Install uv and Python
         uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d  # v10.0.0

@@ -51,7 +51,7 @@ Do not infer alert closure solely from package names or Dependabot's hosted UI.
 
    ```bash
    uv lock --check
-   uv audit
+   uv audit --preview-features audit-command
    ```
 
 2. Parse every resolved version in `uv.lock` and compare it with every open alert's `security_vulnerability.vulnerable_version_range`. Canonicalize names with `packaging.utils.canonicalize_name` and use `packaging.specifiers.SpecifierSet` so matching follows Python package name and version semantics.
@@ -84,8 +84,12 @@ Do not infer alert closure solely from package names or Dependabot's hosted UI.
    with open(sys.argv[1]) as output_file:
        actions = {entry["type"] for entry in yaml.safe_load(output_file)["output"]}
 
-   assert "mark_as_processed" in actions
-   assert actions.isdisjoint({"create_pull_request", "update_pull_request"})
+   if "mark_as_processed" not in actions:
+       raise SystemExit("Dependabot did not mark the job as processed")
+
+   pull_request_actions = actions & {"create_pull_request", "update_pull_request"}
+   if pull_request_actions:
+       raise SystemExit(f"Dependabot still proposes actions: {sorted(pull_request_actions)}")
    PY
    ```
 

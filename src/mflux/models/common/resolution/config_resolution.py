@@ -88,9 +88,15 @@ class ConfigResolution:
         if model_name is None:
             raise ModelConfigError("No model requested: pass a model_name, a base_model, or both.")
 
+        # Several roots share a model_name with a ControlNet derivative (z-image-turbo and
+        # its Union ControlNet; the FLUX.1-dev/schnell ControlNets), and the match rules
+        # return the first hit. A derived variant is always addressed by its own key or
+        # alias, so a bare repo id must land on the base entry — sorted ahead of the
+        # ControlNets here, where priority alone put the Z-Image ControlNet (15) before
+        # plain turbo (21) and made `Tongyi-MAI/Z-Image-Turbo` resolve to the ControlNet.
         base_models = sorted(
             [m for m in AVAILABLE_MODELS.values() if m.base_model is None],
-            key=lambda x: x.priority,
+            key=lambda x: (x.controlnet_model is not None, x.priority),
         )
 
         ctx = {

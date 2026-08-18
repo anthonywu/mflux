@@ -26,8 +26,8 @@ jobs:
         # the primary gate; this fails fast with a clear message if dispatched
         # from any ref other than main.
         run: |
-          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
-            echo "❌ Releases may only be published from main (got ${{ github.ref }})"
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "❌ Releases may only be published from main (got $GITHUB_REF)"
             exit 1
           fi
 

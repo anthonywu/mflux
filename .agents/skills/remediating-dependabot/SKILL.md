@@ -54,18 +54,42 @@ Do not infer alert closure solely from package names or Dependabot's hosted UI.
    uv audit
    ```
 
-2. Parse every resolved version in `uv.lock` and compare it with every open alert's `security_vulnerability.vulnerable_version_range`. Use `packaging.specifiers.SpecifierSet` so the comparison follows Python package version semantics.
+2. Parse every resolved version in `uv.lock` and compare it with every open alert's `security_vulnerability.vulnerable_version_range`. Canonicalize names with `packaging.utils.canonicalize_name` and use `packaging.specifiers.SpecifierSet` so matching follows Python package name and version semantics.
 3. Confirm that each alert is resolved by either:
    - no matching package remaining in the lock; or
    - every matching locked version falling outside the vulnerable range.
 4. Run Dependabot Core against the local checkout before opening a PR:
 
    ```bash
+   tmp_dir="$(mktemp -d)"
+   trap 'rm -rf "$tmp_dir"' EXIT
+   job="$tmp_dir/job.yml"
+   output="$tmp_dir/output.yml"
+
+   # Build the security job at "$job" before running these commands.
    dependabot graph uv mflux-community/mflux --local "$PWD"
-   dependabot update --local "$PWD" -f <job.json> -o <output.json> --pull=false --timeout 20m
+   dependabot update --local "$PWD" -f "$job" -o "$output" --pull=false --timeout 20m
    ```
 
-   Build the temporary `uv` security job from the exact package names and advisory ranges returned by GitHub. The successful result should emit no create/update pull-request action and should mark the job as processed.
+   `graph` is experimental and may return an incomplete dependency list. Both commands snapshot the directory passed to `--local`, including modified and untracked files, so confirm that the working tree contains only the intended updater input.
+
+   Build the temporary `uv` security job from the exact package names and advisory ranges returned by GitHub. Parse the YAML output rather than relying on the command's exit status:
+
+   ```bash
+   uv run python - "$output" <<'PY'
+   import sys
+
+   import yaml
+
+   with open(sys.argv[1]) as output_file:
+       actions = {entry["type"] for entry in yaml.safe_load(output_file)["output"]}
+
+   assert "mark_as_processed" in actions
+   assert actions.isdisjoint({"create_pull_request", "update_pull_request"})
+   PY
+   ```
+
+   Do not pin Dependabot CLI to one release. Verify the installed CLI exposes the commands and flags used here before running the job.
 5. Keep temporary Dependabot job and output files outside the committed change, and remove them after verification.
 6. If the hosted alert remains open while the local lock is already outside its vulnerable range, report it as pending or stale until GitHub rescans. Do not force an unnecessary upgrade just to change the lock entry.
 

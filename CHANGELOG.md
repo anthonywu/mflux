@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.19.1] - 2026-08-20
 
 ### 🔒 Security
 
@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Shell completions cover every installed command**: the generator's hand-maintained list had drifted six commands behind pyproject (`mflux-generate-boogu`, `mflux-generate-lens`, both `mflux-generate-ernie-image` commands, `mflux-generate-ideogram4`, `mflux-capabilities` never completed). Commands are now discovered from the installed console scripts and, where a CLI exposes `build_parser()`, completions are generated from the CLI's real parser instead of a hand-copied recipe of it. (#578, #651)
 - **`mflux-capabilities` publishes wire types, not Python converter names**: options validated by a named converter leaked the function name as their type (`--vae-tile-size` claimed type `vae_tile_size`, `--mlx-cache-limit-gb` claimed `positive_float`, every Path option claimed `PosixPath`). Named converters now map to what they yield: `int`, `float`, `path`, and `int-or-scale` for values that accept a pixel count, a `2x` factor or `auto`. The dump's type field is pinned to that closed vocabulary by a test. (#578, #652)
+
+### 📝 Documentation
+
+- **Lens and Boogu Image documented**: both models join the README's supported-models table, each with a per-model README covering usage and options. (#659)
+
+### 🧰 DX & Maintenance
+
+- **Machine-readable model registry extract**: a new `scripts/ci_extract_models.py` (with a `ci-extract` workflow and `just` recipe) dumps the supported-model registry as JSON, needed by CI to auto-build MFlux models for Hugging Face. (#658)
+- **PyPI publish gated behind a protected `pypi` environment**: the release workflow now runs under the `pypi` deployment environment, so its reviewer-approval and branch-protection rules apply before anything reaches PyPI, and the trusted publisher is pinned to that environment name. A fast-fail step also rejects dispatches from any ref other than `main`. (#646)
+- **Lens DiT loads through the shared `WeightDefinition` seam**: replaces its bespoke weight-loading path with the mechanism the other models use. (#654)
+- **Flaky Gemma 2 causality test fixed**: the test could pick an out-of-vocab token and fail spuriously. (#653)
 
 ## [0.19.0] - 2026-08-18
 

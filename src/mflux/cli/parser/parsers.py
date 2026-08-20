@@ -98,6 +98,7 @@ class CommandLineParser(argparse.ArgumentParser):
         self.require_model_arg = True
         self.require_init_image = False
         self.require_image_paths = False
+        self.require_redux_image_paths = False
         self.default_model = None
 
     def add_general_arguments(self) -> None:
@@ -231,7 +232,10 @@ class CommandLineParser(argparse.ArgumentParser):
         self.add_argument("--quantize",  "-q", type=int, choices=ui_defaults.QUANTIZE_CHOICES, default=None, required=False, help=f"Quantize the model ({' or '.join(map(str, ui_defaults.QUANTIZE_CHOICES))}, Default is None)")
 
     def add_redux_arguments(self) -> None:
-        self.add_argument("--redux-image-paths", type=Path, nargs="*", required=True, help="Local path to the source image")
+        # Same post-parse requirement as --image-paths: argparse required= is checked
+        # before the metadata block, so a redux sidecar could not be replayed with -C.
+        self.require_redux_image_paths = True
+        self.add_argument("--redux-image-paths", type=Path, nargs="*", default=None, help="Local path to the source image")
         self.add_argument("--redux-image-strengths", type=float, nargs="*", default=None, help="Strength values (between 0.0 and 1.0) for each reference image. Default is 1.0 for all images.")
 
     def add_pid_decode_arguments(self) -> None:
@@ -404,6 +408,7 @@ class CommandLineParser(argparse.ArgumentParser):
 
         lora_paths_from_metadata = False
         image_paths_from_metadata = False
+        redux_image_paths_from_metadata = False
 
         if getattr(namespace, "config_from_metadata", False):
             prior_gen_metadata = json.load(namespace.config_from_metadata.open("rt"))
@@ -470,6 +475,21 @@ class CommandLineParser(argparse.ArgumentParser):
                 namespace.image_paths = [Path(p) for p in prior_gen_metadata.get("image_paths") or []] or None
                 image_paths_from_metadata = namespace.image_paths is not None
 
+            if hasattr(namespace, "redux_image_paths") and namespace.redux_image_paths is None:
+                # Only a JSON list is restorable. Older sidecars wrote str(list) (a Python
+                # repr) and that string is not a path list — leave it unset so the post-parse
+                # requirement names --redux-image-paths instead of iterating characters.
+                raw_redux_paths = prior_gen_metadata.get("redux_image_paths")
+                if isinstance(raw_redux_paths, list):
+                    namespace.redux_image_paths = [Path(p) for p in raw_redux_paths] or None
+                    redux_image_paths_from_metadata = namespace.redux_image_paths is not None
+                if (
+                    namespace.redux_image_strengths is None
+                    and not self._option_was_provided("--redux-image-strengths")
+                    and (redux_strengths := prior_gen_metadata.get("redux_image_strengths"))
+                ):
+                    namespace.redux_image_strengths = redux_strengths
+
             if hasattr(namespace, "mask_path") and namespace.mask_path is None:
                 namespace.mask_path = (
                     prior_gen_metadata.get("masked_image_path", None) or prior_gen_metadata.get("mask_path", None)
@@ -507,11 +527,17 @@ class CommandLineParser(argparse.ArgumentParser):
         if self.require_image_paths and not getattr(namespace, "image_paths", None):
             self.error("At least one init image is required. Provide one with --image-paths PATH [PATH ...] (e.g. --image-paths photo.jpg).")
 
+        if self.require_redux_image_paths and not getattr(namespace, "redux_image_paths", None):
+            self.error("At least one redux image is required. Provide one with --redux-image-paths PATH [PATH ...] (e.g. --redux-image-paths photo.jpg).")
+
         if image_paths_from_metadata and (missing := [path for path in namespace.image_paths if not path.exists()]):
             # A sidecar records the resolved absolute path, so one carried between machines
             # fails on an argument the user never typed — and, without this, only after the
             # model has loaded, since nothing opens the file until dimension resolution.
             self.error(f"Init image not found: {', '.join(str(path) for path in missing)}\nTip: that path came from {namespace.config_from_metadata}. Pass --image-paths PATH [PATH ...] to use your own copy.")  # fmt: off
+
+        if redux_image_paths_from_metadata and (missing := [path for path in namespace.redux_image_paths if not path.exists()]):
+            self.error(f"Redux image not found: {', '.join(str(path) for path in missing)}\nTip: that path came from {namespace.config_from_metadata}. Pass --redux-image-paths PATH [PATH ...] to use your own copy.")  # fmt: off
 
         if self.supports_image_generation and namespace.seed is None and namespace.auto_seeds > 0:
             # choose N unique int seeds in the range of  0 < value < 1 billion

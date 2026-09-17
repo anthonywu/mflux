@@ -52,6 +52,28 @@ class ComponentDefinition:
     # single-file checkpoint vs a diffusers sharded directory with different keys).
     variant_selector: Callable[[Path], "ComponentDefinition"] | None = None
 
+    @staticmethod
+    def save_subdirs(components: "List[ComponentDefinition]") -> dict[str, str]:
+        # Where ModelSaver writes each component and where the loader probes for an mflux-saved
+        # one. Two independent components that share a directory (SeedVR2's transformer and vae
+        # both sit flat at repo root, told apart on load by weight_files) would overwrite each
+        # other's shards and index, so each gets its own <hf_subdir>/<name>. A prefix-filtered
+        # shared-source split (FIBO VLM's decoder and visual read the same files) keeps its
+        # hf_subdir. Grouped by the resolved directory, so "" and "." count as one; matches
+        # ModelSaver, which writes the static hf_subdir and never runs variant_selector.
+        counts: dict[str, int] = {}
+        for c in components:
+            resolved = str(Path(c.hf_subdir))
+            counts[resolved] = counts.get(resolved, 0) + 1
+        return {
+            c.name: (
+                str(Path(c.hf_subdir) / c.name)
+                if counts[str(Path(c.hf_subdir))] > 1 and c.weight_prefix_filters is None
+                else c.hf_subdir
+            )
+            for c in components
+        }
+
 
 @dataclass
 class TokenizerDefinition:

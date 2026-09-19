@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from typing import TYPE_CHECKING
 
 import mlx.core as mx
@@ -12,6 +13,8 @@ if TYPE_CHECKING:
 
 
 class GenerationContext:
+    _OPT_IN_KINDS = (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+
     def __init__(
         self,
         registry: CallbackRegistry,
@@ -43,9 +46,18 @@ class GenerationContext:
                 control_images=control_images,
             )
 
-    def in_loop(self, t: int, latents: mx.array, time_steps: tqdm = None) -> None:
+    def in_loop(
+        self,
+        t: int,
+        latents: mx.array,
+        time_steps: tqdm = None,
+        denoised: mx.array | None = None,
+    ) -> None:
         time_steps = time_steps or self._config.time_steps
         for subscriber in self._registry.in_loop_callbacks():
+            # Opt-in by declaring `denoised`; `**kwargs` alone does not opt in, so a decorator
+            # without `functools.wraps` or a bare Mock stays untouched.
+            extra = {"denoised": denoised} if GenerationContext._accepts_denoised(subscriber) else {}
             subscriber.call_in_loop(
                 t=t,
                 seed=self._seed,
@@ -53,6 +65,7 @@ class GenerationContext:
                 latents=latents,
                 config=self._config,
                 time_steps=time_steps,
+                **extra,
             )
 
     def after_loop(self, latents: mx.array) -> None:
@@ -75,3 +88,11 @@ class GenerationContext:
                 config=self._config,
                 time_steps=time_steps,
             )
+
+    @staticmethod
+    def _accepts_denoised(subscriber) -> bool:
+        try:
+            parameters = inspect.signature(subscriber.call_in_loop).parameters.values()
+        except (TypeError, ValueError):
+            return False
+        return any(p.name == "denoised" and p.kind in GenerationContext._OPT_IN_KINDS for p in parameters)

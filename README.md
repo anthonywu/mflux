@@ -188,7 +188,10 @@ path extends across installed distributions, including separate editable
 checkouts. `mflux.web` is an implicit namespace package: Python combines the
 `mflux/web/` directories contributed by independently installed UI packages.
 No intermediate distribution is required; neither core nor UI packages need to
-depend on `mflux-web`.
+depend on `mflux-web`. The [`mflux-web`](https://pypi.org/project/mflux-web/)
+distribution reserves the generic `mflux-web` name on PyPI; it does not provide
+the shared namespace and does not need to be installed. Its optional demo is
+just another child module, `mflux.web.demo`.
 
 Your UI distribution owns a unique child, for example
 `src/mflux/web/example_ui/__init__.py`. With `uv_build`, configure

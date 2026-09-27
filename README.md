@@ -183,22 +183,24 @@ We welcome independently distributed `mflux.web.*` implementations using Gradio,
 FastAPI, FastHTML, or any other UI framework. Each project can choose its own
 framework, dependencies, release schedule, and launch command.
 
-The namespace has three owners at distinct levels:
+`mflux` owns the parent initializer and inference implementation. Its package
+path extends across installed distributions, including separate editable
+checkouts. `mflux.web` is an implicit namespace package: Python combines the
+`mflux/web/` directories contributed by independently installed UI packages.
+No intermediate distribution is required; neither core nor UI packages need to
+depend on `mflux-web`.
 
-- `mflux` owns the parent package and inference implementation. Its package path
-  extends across installed distributions, including separate editable checkouts.
-- [mflux-web](https://pypi.org/project/mflux-web/) owns `mflux.web` and extends its
-  path so UI packages can contribute children. It is installed separately from
-  the inference library.
-- Your distribution owns a unique child, for example `mflux.web.example_ui`.
-  Declare `mflux-web` as a dependency, plus `mflux` when using inference APIs.
+Your UI distribution owns a unique child, for example
+`src/mflux/web/example_ui/__init__.py`. With `uv_build`, configure
+`module-name = "mflux.web.example_ui"`. Declare `mflux` and your chosen framework
+as dependencies with versions your UI supports. The minimum `mflux` version for
+split-directory installs must include this parent path extension.
 
-A UI distribution can ship `src/mflux/web/example_ui/__init__.py` and configure
-`uv_build` with `module-name = "mflux.web.example_ui"`. Do not ship
-`mflux/__init__.py` or `mflux/web/__init__.py`: those belong to the parent
-distributions. Choose a unique child name and avoid `demo`, which is reserved by
-`mflux-web`. PyPI distribution names can use hyphens; Python child names must be
-valid identifiers, such as `example_ui`.
+Do not ship `mflux/__init__.py`, which belongs to core, or
+`mflux/web/__init__.py`, which must remain absent for the implicit namespace.
+Choose a unique child name to avoid collisions. PyPI distribution names can use
+hyphens; Python child names must be valid identifiers, such as `example_ui`.
+Reserving a PyPI distribution name does not reserve a Python namespace.
 
 After installation in the same environment, consumers can use
 `import mflux.web.example_ui`. Installing a UI does not automatically launch it,

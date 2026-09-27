@@ -177,6 +177,36 @@ MFlux was originally created by [Filip Strand](https://github.com/filipstrand)
 
 ### 🌱 Related projects
 
+#### Build a UI under `mflux.web`
+
+We welcome independently distributed `mflux.web.*` implementations using Gradio,
+FastAPI, FastHTML, or any other UI framework. Each project can choose its own
+framework, dependencies, release schedule, and launch command.
+
+The namespace has three owners at distinct levels:
+
+- `mflux` owns the parent package and inference implementation. Its package path
+  extends across installed distributions, including separate editable checkouts.
+- [mflux-web](https://pypi.org/project/mflux-web/) owns `mflux.web` and extends its
+  path so UI packages can contribute children. It is installed separately from
+  the inference library.
+- Your distribution owns a unique child, for example `mflux.web.example_ui`.
+  Declare `mflux-web` as a dependency, plus `mflux` when using inference APIs.
+
+A UI distribution can ship `src/mflux/web/example_ui/__init__.py` and configure
+`uv_build` with `module-name = "mflux.web.example_ui"`. Do not ship
+`mflux/__init__.py` or `mflux/web/__init__.py`: those belong to the parent
+distributions. Choose a unique child name and avoid `demo`, which is reserved by
+`mflux-web`. PyPI distribution names can use hyphens; Python child names must be
+valid identifiers, such as `example_ui`.
+
+After installation in the same environment, consumers can use
+`import mflux.web.example_ui`. Installing a UI does not automatically launch it,
+discover applications, or mount routes. UI framework dependencies belong to the
+individual UI distributions; this namespace support adds none to `mflux`.
+
+#### Community applications
+
 - [MindCraft Studio](https://themindstudio.cc/mindcraft#models) — macOS app built on mflux by [@shaoju](https://github.com/shaoju)
 - [mflux-paint](https://github.com/Amo643/mflux-paint) — native macOS inpaint/edit app (pywebview), 16 models across edit/inpaint/text-to-image, mask painting, multi-seed batch, by [@Amo643](https://github.com/Amo643)
 - [Mflux-ComfyUI](https://github.com/raysers/Mflux-ComfyUI) by [@raysers](https://github.com/raysers)

@@ -6,9 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import mlx.core as mx
-import torch
 from mlx.utils import tree_unflatten
-from safetensors.torch import load_file as torch_load_file
 
 from mflux.cli.defaults.defaults import MFLUX_CACHE_DIR
 from mflux.models.common.resolution.path_resolution import PathResolution
@@ -318,6 +316,8 @@ class WeightLoader:
 
     @staticmethod
     def _load_torch_checkpoint(file_path: Path) -> dict[str, mx.array]:
+        import torch  # only for PyTorch-format weights
+
         pt_weights = torch.load(file_path, map_location="cpu", weights_only=False)
         return {k: mx.array(v.numpy()) for k, v in pt_weights.items() if isinstance(v, torch.Tensor)}
 
@@ -363,6 +363,9 @@ class WeightLoader:
 
     @staticmethod
     def _load_torch_convert(path: Path, weight_files: list[str] | None = None) -> dict[str, mx.array]:
+        import torch  # only for PyTorch-format weights
+        from safetensors.torch import load_file as torch_load_file
+
         if weight_files:
             # Load only specified files
             missing = [f for f in weight_files if not (path / f).exists()]
@@ -413,6 +416,9 @@ class WeightLoader:
 
     @staticmethod
     def _load_torch_bfloat16(path: Path) -> dict[str, mx.array]:
+        import torch  # only for PyTorch-format weights
+        from safetensors.torch import load_file as torch_load_file
+
         index_path = path / "model.safetensors.index.json"
         with open(index_path) as f:
             index = json.load(f)

@@ -213,6 +213,7 @@ def test_text_vae_hf_mapping_targets_the_shared_layout(tmp_path, dtype):
     "legacy,production",
     [
         ("reference.latent_creator.qwen_image21_latent_creator", "latent_creator.qwen_image21_latent_creator"),
+        ("reference.model.qwen_image21_text_encoder.grounding", "model.qwen21_text_encoder.grounding"),
         ("reference.model.qwen_image21_text_encoder.processor", "model.qwen21_text_encoder.processor"),
         ("reference.model.qwen_image21_text_encoder.prompt_encoder", "model.qwen21_text_encoder.prompt_encoder"),
         ("reference.model.qwen_image21_text_encoder.text_encoder", "model.qwen21_text_encoder.text_encoder"),

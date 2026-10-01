@@ -34,6 +34,8 @@ class LanguageModel(nn.Module):
         if text_mode:
             self.norm = Qwen3VLRMSNorm(config["hidden_size"], eps=config["rms_norm_eps"])
         else:
+            # Only greedy decoding (grounding, prompt rewriting, verification) reads the final norm.
+            self.norm = TextRMSNorm(config["hidden_size"], config["rms_norm_eps"])
             for layer in self.layers:
                 layer.input_layernorm = TextRMSNorm(config["hidden_size"], config["rms_norm_eps"])
                 layer.post_attention_layernorm = TextRMSNorm(config["hidden_size"], config["rms_norm_eps"])
